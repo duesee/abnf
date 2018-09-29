@@ -147,12 +147,12 @@ pub enum Range {
     Range(u8, u8),
 }
 
-/// rulelist = 1*( rule / (*c-wsp c-nl) )
+/// rulelist = 1*( rule / (*WSP c-nl) )
 named!(pub rulelist_comp<Vec<Rule>>, do_parse!(
     all: many1!(
         complete!(alt!(
             map!(rule, |rule| Some(rule)) |
-            map!(tuple!(many0!(c_wsp), c_nl), |_| None)
+            map!(tuple!(many0!(WSP), c_nl), |_| None)
         ))
     ) >> ({
         let mut res = vec![];
@@ -207,10 +207,10 @@ named!(pub defined_as<()>, do_parse!(
     )
 ));
 
-/// elements = alternation *c-wsp
+/// elements = alternation *WSP
 named!(pub elements<Alternation>, do_parse!(
     alternation: alternation >>
-    many0!(c_wsp) >> (
+    many0!(WSP) >> (
         alternation
     )
 ));

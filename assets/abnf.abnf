@@ -1,4 +1,5 @@
-rulelist      = 1*( rule / (*c-wsp c-nl) )
+; errata id: 3076
+rulelist      = 1*( rule / (*WSP c-nl) )
 
 rule          = rulename defined-as elements c-nl
                  ; continues if next line starts
@@ -10,7 +11,8 @@ defined-as    = *c-wsp ("=" / "=/") *c-wsp
                  ; basic rules definition and
                  ;  incremental alternatives
 
-elements      = alternation *c-wsp
+; errata id: 2968
+elements      = alternation *WSP
 
 c-wsp         = WSP / (c-nl WSP)
 
