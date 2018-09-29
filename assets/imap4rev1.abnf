@@ -108,6 +108,7 @@ capability-data = "CAPABILITY" *(SP capability) SP "IMAP4rev1" *(SP capability)
 CHAR8           = %x01-ff
                     ; any OCTET except NUL, %x00
 
+; errata id: 261 
 charset         = atom / quoted
 
 command         = tag SP (command-any / command-auth / command-nonauth / command-select) CRLF
@@ -326,6 +327,7 @@ resp-specials   = "]"
 
 resp-text       = ["[" resp-text-code "]" SP] text
 
+; errata id: 261 
 resp-text-code  = "ALERT" /
                   "BADCHARSET" [SP "(" charset *(SP charset) ")" ] /
                   capability-data / "PARSE" /
@@ -336,6 +338,7 @@ resp-text-code  = "ALERT" /
                   "UNSEEN" SP nz-number /
                   atom [SP 1*<any TEXT-CHAR except "]">]
 
+; errata id: 261 
 search          = "SEARCH" [SP "CHARSET" SP charset] 1*(SP search-key)
                     ; CHARSET argument to MUST be registered with IANA
 
@@ -398,6 +401,7 @@ seq-range       = seq-number ":" seq-number
                     ; 3291:* includes the UID of the last message in
                     ; the mailbox, even if that value is less than 3291.
 
+; errata id: 261 
 sequence-set    = (seq-number / seq-range) ["," sequence-set]
                     ; set of seq-number values, regardless of order.
                     ; Servers MAY coalesce overlaps and/or execute the
@@ -414,10 +418,12 @@ status          = "STATUS" SP mailbox SP "(" status-att *(SP status-att) ")"
 
 status-att      = "MESSAGES" / "RECENT" / "UIDNEXT" / "UIDVALIDITY" / "UNSEEN"
 
+; errata id: 261 
 status-att-val  = ("MESSAGES" SP number) / ("RECENT" SP number) /    
                   ("UIDNEXT" SP nz-number) / ("UIDVALIDITY" SP nz-number) /
                   ("UNSEEN" SP number)
 
+; errata id: 261 
 status-att-list =  status-att-val *(SP status-att-val)
 
 store           = "STORE" SP sequence-set SP store-att-flags
