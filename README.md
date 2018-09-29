@@ -1,5 +1,5 @@
-# abnf
-nom-based ABNF parser.
+# ABNF
+A nom-based ABNF parser.
 
-# status
-not thoroughly tested, but "works for me" (and with arguably complex ABNFs; see "assets/")
+# Status
+Not thoroughly tested, but "works for me" (and with arguably complex ABNFs)

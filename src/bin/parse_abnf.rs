@@ -17,9 +17,11 @@ fn main() {
     // so that they can be easily concatenated.
     let mut data = read_to_vec("assets/abnf_core.abnf").unwrap();
     let mut abnf = read_to_vec("assets/abnf.abnf").unwrap();
+    let mut smtp = read_to_vec("assets/smtp.abnf").unwrap();
     let mut imap = read_to_vec("assets/imap4rev1.abnf").unwrap();
 
     data.append(&mut abnf);
+    data.append(&mut smtp);
     data.append(&mut imap);
 
     // nom is a streaming parser. Thus, when handling finite input,
