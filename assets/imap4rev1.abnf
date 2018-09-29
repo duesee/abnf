@@ -108,6 +108,8 @@ capability-data = "CAPABILITY" *(SP capability) SP "IMAP4rev1" *(SP capability)
 CHAR8           = %x01-ff
                     ; any OCTET except NUL, %x00
 
+charset         = atom / quoted
+
 command         = tag SP (command-any / command-auth / command-nonauth / command-select) CRLF
                     ; Modal based on state
 
@@ -325,7 +327,7 @@ resp-specials   = "]"
 resp-text       = ["[" resp-text-code "]" SP] text
 
 resp-text-code  = "ALERT" /
-                  "BADCHARSET" [SP "(" astring *(SP astring) ")" ] /
+                  "BADCHARSET" [SP "(" charset *(SP charset) ")" ] /
                   capability-data / "PARSE" /
                   "PERMANENTFLAGS" SP "("
                   [flag-perm *(SP flag-perm)] ")" /
@@ -334,7 +336,7 @@ resp-text-code  = "ALERT" /
                   "UNSEEN" SP nz-number /
                   atom [SP 1*<any TEXT-CHAR except "]">]
 
-search          = "SEARCH" [SP "CHARSET" SP astring] 1*(SP search-key)
+search          = "SEARCH" [SP "CHARSET" SP charset] 1*(SP search-key)
                     ; CHARSET argument to MUST be registered with IANA
 
 search-key      = "ALL" / "ANSWERED" / "BCC" SP astring /
@@ -396,7 +398,7 @@ seq-range       = seq-number ":" seq-number
                     ; 3291:* includes the UID of the last message in
                     ; the mailbox, even if that value is less than 3291.
 
-sequence-set    = (seq-number / seq-range) *("," sequence-set)
+sequence-set    = (seq-number / seq-range) ["," sequence-set]
                     ; set of seq-number values, regardless of order.
                     ; Servers MAY coalesce overlaps and/or execute the
                     ; sequence in any order.
@@ -412,7 +414,11 @@ status          = "STATUS" SP mailbox SP "(" status-att *(SP status-att) ")"
 
 status-att      = "MESSAGES" / "RECENT" / "UIDNEXT" / "UIDVALIDITY" / "UNSEEN"
 
-status-att-list =  status-att SP number *(SP status-att SP number)
+status-att-val  = ("MESSAGES" SP number) / ("RECENT" SP number) /    
+                  ("UIDNEXT" SP nz-number) / ("UIDVALIDITY" SP nz-number) /
+                  ("UNSEEN" SP number)
+
+status-att-list =  status-att-val *(SP status-att-val)
 
 store           = "STORE" SP sequence-set SP store-att-flags
 
