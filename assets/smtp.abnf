@@ -181,7 +181,7 @@ ID             = CFWS "ID" FWS ( Atom / msg-id )
 
 For            = CFWS "FOR" FWS ( Path / Mailbox )
 
-Additional-Registered-Clauses  = CFWS Atom FWS String
+Additional-Registered-Clauses  = 1*(CFWS Atom FWS String)
                                   ; Additional standard clauses may be added in this
                                   ; location by future standards and registration with
                                   ; IANA.  SMTP servers SHOULD NOT use unregistered
