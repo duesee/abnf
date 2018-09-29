@@ -1,0 +1,7 @@
+[package]
+name = "abnf"
+version = "0.1.0"
+authors = ["Damian Poddebniak <poddebniak@fh-muenster.de>"]
+
+[dependencies]
+nom = "*"
