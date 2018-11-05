@@ -5,21 +5,10 @@ use super::core::*;
 use nom::{Context, Err, ErrorKind, IResult, Needed};
 use std::fmt;
 
-#[derive(Debug)]
-pub struct Rule {
-    pub name: String,
-    pub elements: Alternation,
-}
-
 impl fmt::Display for Rule {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{} = {}", self.name, self.elements)
     }
-}
-
-#[derive(Debug)]
-pub struct Alternation {
-    pub concatenations: Vec<Concatenation>,
 }
 
 impl fmt::Display for Alternation {
@@ -34,11 +23,6 @@ impl fmt::Display for Alternation {
     }
 }
 
-#[derive(Debug)]
-pub struct Concatenation {
-    pub repetitions: Vec<Repetition>,
-}
-
 impl fmt::Display for Concatenation {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if let Some((last, elements)) = self.repetitions.split_last() {
@@ -49,12 +33,6 @@ impl fmt::Display for Concatenation {
         }
         Ok(())
     }
-}
-
-#[derive(Debug)]
-pub struct Repetition {
-    pub repeat: Option<Repeat>,
-    pub element: Element,
 }
 
 impl fmt::Display for Repetition {
@@ -73,22 +51,6 @@ impl fmt::Display for Repetition {
 
         write!(f, "{}", self.element)
     }
-}
-
-#[derive(Debug)]
-pub struct Repeat {
-    pub min: Option<usize>,
-    pub max: Option<usize>,
-}
-
-#[derive(Debug)]
-pub enum Element {
-    Rulename(String),
-    Group(Group),
-    Option(Optional),
-    CharVal(String),
-    NumVal(Range),
-    ProseVal(String),
 }
 
 impl fmt::Display for Element {
@@ -119,26 +81,64 @@ impl fmt::Display for Element {
     }
 }
 
-#[derive(Debug)]
-pub struct Group {
-    pub alternation: Alternation,
-}
-
 impl fmt::Display for Group {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "({})", self.alternation)
     }
 }
 
-#[derive(Debug)]
-pub struct Optional {
-    pub alternation: Alternation
-}
-
 impl fmt::Display for Optional {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "[{}]", self.alternation)
     }
+}
+
+#[derive(Debug)]
+pub struct Rule {
+    pub name: String,
+    pub elements: Alternation,
+}
+
+#[derive(Debug)]
+pub struct Alternation {
+    pub concatenations: Vec<Concatenation>,
+}
+
+#[derive(Debug)]
+pub struct Concatenation {
+    pub repetitions: Vec<Repetition>,
+}
+
+#[derive(Debug)]
+pub struct Repetition {
+    pub repeat: Option<Repeat>,
+    pub element: Element,
+}
+
+#[derive(Debug)]
+pub struct Repeat {
+    pub min: Option<usize>,
+    pub max: Option<usize>,
+}
+
+#[derive(Debug)]
+pub enum Element {
+    Rulename(String),
+    Group(Group),
+    Option(Optional),
+    CharVal(String),
+    NumVal(Range),
+    ProseVal(String),
+}
+
+#[derive(Debug)]
+pub struct Group {
+    pub alternation: Alternation,
+}
+
+#[derive(Debug)]
+pub struct Optional {
+    pub alternation: Alternation
 }
 
 #[derive(Debug, Eq, PartialEq)]
