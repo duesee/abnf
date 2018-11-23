@@ -5,10 +5,21 @@ use super::core::*;
 use nom::{Context, Err, ErrorKind, IResult, Needed};
 use std::fmt;
 
+#[derive(Debug)]
+pub struct Rule {
+    pub name: String,
+    pub elements: Alternation,
+}
+
 impl fmt::Display for Rule {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{} = {}", self.name, self.elements)
     }
+}
+
+#[derive(Debug)]
+pub struct Alternation {
+    pub concatenations: Vec<Concatenation>,
 }
 
 impl fmt::Display for Alternation {
@@ -23,6 +34,11 @@ impl fmt::Display for Alternation {
     }
 }
 
+#[derive(Debug)]
+pub struct Concatenation {
+    pub repetitions: Vec<Repetition>,
+}
+
 impl fmt::Display for Concatenation {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if let Some((last, elements)) = self.repetitions.split_last() {
@@ -33,6 +49,12 @@ impl fmt::Display for Concatenation {
         }
         Ok(())
     }
+}
+
+#[derive(Debug)]
+pub struct Repetition {
+    pub repeat: Option<Repeat>,
+    pub element: Element,
 }
 
 impl fmt::Display for Repetition {
@@ -53,6 +75,22 @@ impl fmt::Display for Repetition {
     }
 }
 
+#[derive(Debug)]
+pub struct Repeat {
+    pub min: Option<usize>,
+    pub max: Option<usize>,
+}
+
+#[derive(Debug)]
+pub enum Element {
+    Rulename(String),
+    Group(Group),
+    Option(Optional),
+    CharVal(String),
+    NumVal(Range),
+    ProseVal(String),
+}
+
 impl fmt::Display for Element {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::Element::*;
@@ -71,7 +109,7 @@ impl fmt::Display for Element {
                 write!(f, "\"{}\"", val)?;
             }
             NumVal(range) => {
-                write!(f, "{:?}", range)?;
+                write!(f, "{}", range)?;
             }
             ProseVal(val) => {
                 write!(f, "<{}>", val)?;
@@ -81,10 +119,20 @@ impl fmt::Display for Element {
     }
 }
 
+#[derive(Debug)]
+pub struct Group {
+    pub alternation: Alternation,
+}
+
 impl fmt::Display for Group {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "({})", self.alternation)
     }
+}
+
+#[derive(Debug)]
+pub struct Optional {
+    pub alternation: Alternation
 }
 
 impl fmt::Display for Optional {
@@ -93,58 +141,30 @@ impl fmt::Display for Optional {
     }
 }
 
-#[derive(Debug)]
-pub struct Rule {
-    pub name: String,
-    pub elements: Alternation,
-}
-
-#[derive(Debug)]
-pub struct Alternation {
-    pub concatenations: Vec<Concatenation>,
-}
-
-#[derive(Debug)]
-pub struct Concatenation {
-    pub repetitions: Vec<Repetition>,
-}
-
-#[derive(Debug)]
-pub struct Repetition {
-    pub repeat: Option<Repeat>,
-    pub element: Element,
-}
-
-#[derive(Debug)]
-pub struct Repeat {
-    pub min: Option<usize>,
-    pub max: Option<usize>,
-}
-
-#[derive(Debug)]
-pub enum Element {
-    Rulename(String),
-    Group(Group),
-    Option(Optional),
-    CharVal(String),
-    NumVal(Range),
-    ProseVal(String),
-}
-
-#[derive(Debug)]
-pub struct Group {
-    pub alternation: Alternation,
-}
-
-#[derive(Debug)]
-pub struct Optional {
-    pub alternation: Alternation
-}
-
 #[derive(Debug, Eq, PartialEq)]
 pub enum Range {
     OneOf(Vec<u8>),
     Range(u8, u8),
+}
+
+impl fmt::Display for Range {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "%x")?;
+        match self {
+            Range::OneOf(allowed) => {
+                if let Some((last, elements)) = allowed.split_last() {
+                    for item in elements {
+                        write!(f, "{:02X}.", item)?;
+                    }
+                    write!(f, "{:02X}", last)?;
+                }
+            }
+            Range::Range(from, to) => {
+                write!(f, "{:02X}-{:02X}", from, to)?;
+            }
+        }
+        Ok(())
+    }
 }
 
 /// rulelist = 1*( rule / (*WSP c-nl) )
