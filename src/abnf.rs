@@ -5,7 +5,7 @@ use super::core::*;
 use nom::{Context, Err, ErrorKind, IResult, Needed};
 use std::fmt;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Rule {
     pub name: String,
     pub elements: Alternation,
@@ -17,7 +17,7 @@ impl fmt::Display for Rule {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Alternation {
     pub concatenations: Vec<Concatenation>,
 }
@@ -34,7 +34,7 @@ impl fmt::Display for Alternation {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Concatenation {
     pub repetitions: Vec<Repetition>,
 }
@@ -51,7 +51,7 @@ impl fmt::Display for Concatenation {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Repetition {
     pub repeat: Option<Repeat>,
     pub element: Element,
@@ -75,13 +75,13 @@ impl fmt::Display for Repetition {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Repeat {
     pub min: Option<usize>,
     pub max: Option<usize>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Element {
     Rulename(String),
     Group(Group),
@@ -119,7 +119,7 @@ impl fmt::Display for Element {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Group {
     pub alternation: Alternation,
 }
@@ -130,7 +130,7 @@ impl fmt::Display for Group {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Optional {
     pub alternation: Alternation
 }
@@ -141,7 +141,7 @@ impl fmt::Display for Optional {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Range {
     OneOf(Vec<u8>),
     Range(u8, u8),
