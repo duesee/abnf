@@ -12,23 +12,36 @@ fn read_to_vec(path: &str) -> io::Result<Vec<u8>> {
     Ok(data)
 }
 
-fn main() {
-    // The files contain an extra newline at the end,
-    // so that they can be easily concatenated.
-    let mut data = read_to_vec("assets/abnf_core.abnf").unwrap();
-    let mut abnf = read_to_vec("assets/abnf.abnf").unwrap();
-    let mut smtp = read_to_vec("assets/smtp.abnf").unwrap();
-    let mut imap = read_to_vec("assets/imap4rev1.abnf").unwrap();
+fn main() -> std::io::Result<()> {
+    let paths: Vec<String> = {
+        let mut args = std::env::args();
+        let _ = args.next(); // skip program name
+        args.collect()
+    };
 
-    data.append(&mut abnf);
-    data.append(&mut smtp);
-    data.append(&mut imap);
+    if paths.len() == 0 {
+        println!("No files specified. Exit.");
+        std::process::exit(0);
+    }
 
-    // nom is a streaming parser. Thus, when handling finite input,
+    let data = {
+        let mut data = Vec::new();
+        for path in paths {
+            let mut buffer = read_to_vec(&path)?;
+            data.append(&mut buffer);
+            data.push('\n' as u8);
+        }
+
+        data
+    };
+
+    // Nom is a streaming parser. Thus, when handling finite input,
     // use functions with _comp suffix to avoid `Err::Incomplete`.
     let res = rulelist_comp(&data).unwrap().1;
 
     for rule in &res {
         println!("{}\n", rule);
     }
+
+    Ok(())
 }
