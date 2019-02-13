@@ -4,4 +4,4 @@ version = "0.1.1"
 authors = ["Damian Poddebniak <poddebniak@fh-muenster.de>"]
 
 [dependencies]
-nom = { version="*", features = ["regexp", "verbose-errors"] }
+nom = "*"
