@@ -3,6 +3,7 @@ name = "abnf"
 description = "A nom-based parser for ABNF."
 version = "0.1.2"
 authors = ["Damian Poddebniak <poddebniak@fh-muenster.de>"]
+readme = "README.md"
 license = "AGPL-3.0"
 
 repository = "https://github.com/duesee/abnf"

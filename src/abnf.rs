@@ -1,5 +1,18 @@
 #![allow(non_snake_case)]
 
+//!
+//! Parsing of ABNF
+//!
+//! See https://tools.ietf.org/html/rfc5234#section-4
+//!
+
+//
+// TODO: can we replace nom's
+//   named_attr!(#[doc = ""], ...
+// with something less distracting? We should document public functions,
+// but currently nom's syntax is really hard to read in the source code.
+//
+
 use super::core::*;
 
 use nom::{Context, Err, ErrorKind, IResult, Needed};
@@ -167,8 +180,11 @@ impl fmt::Display for Range {
     }
 }
 
-/// rulelist = 1*( rule / (*WSP c-nl) )
-named!(pub rulelist_comp<Vec<Rule>>, do_parse!(
+named_attr!(#[doc = r#"
+```text
+rulelist = 1*( rule / (*WSP c-nl) )
+```
+"#], pub rulelist_comp<Vec<Rule>>, do_parse!(
     all: many1!(
         complete!(alt!(
             map!(rule, |rule| Some(rule)) |
@@ -185,10 +201,13 @@ named!(pub rulelist_comp<Vec<Rule>>, do_parse!(
     })
 ));
 
-/// rule = rulename defined-as elements c-nl
-///         ; continues if next line starts
-///         ;  with white space
-named!(pub rule<Rule>, do_parse!(
+named_attr!(#[doc = r#"
+```text
+rule = rulename defined-as elements c-nl
+        ; continues if next line starts
+        ;  with white space
+```
+"#], pub rule<Rule>, do_parse!(
     name: rulename >>
     defined_as >>
     elements: elements >>
@@ -200,8 +219,11 @@ named!(pub rule<Rule>, do_parse!(
     )
 ));
 
-/// rulename = ALPHA *(ALPHA / DIGIT / "-")
-named!(pub rulename<String>, do_parse!(
+named_attr!(#[doc = r#"
+```text
+rulename = ALPHA *(ALPHA / DIGIT / "-")
+```
+"#], pub rulename<String>, do_parse!(
     head: ALPHA >>
     tail: many0!(
         alt!(
@@ -216,10 +238,13 @@ named!(pub rulename<String>, do_parse!(
     })
 ));
 
-/// defined-as = *c-wsp ("=" / "=/") *c-wsp
-///               ; basic rules definition and
-///               ;  incremental alternatives
-named!(pub defined_as<()>, do_parse!(
+named_attr!(#[doc = r#"
+```text
+defined-as = *c-wsp ("=" / "=/") *c-wsp
+              ; basic rules definition and
+              ;  incremental alternatives
+```
+"#], pub defined_as<()>, do_parse!(
     many0!(c_wsp) >>
     alt!(tag!("=/") | tag!("=")) >>
     many0!(c_wsp) >> (
@@ -227,16 +252,22 @@ named!(pub defined_as<()>, do_parse!(
     )
 ));
 
-/// elements = alternation *WSP
-named!(pub elements<Alternation>, do_parse!(
+named_attr!(#[doc = r#"
+```text
+elements = alternation *WSP
+```
+"#], pub elements<Alternation>, do_parse!(
     alternation: alternation >>
     many0!(WSP) >> (
         alternation
     )
 ));
 
-/// c-wsp = WSP / (c-nl WSP)
-named!(pub c_wsp<()>, do_parse!(
+named_attr!(#[doc = r#"
+```text
+c-wsp = WSP / (c-nl WSP)
+```
+"#], pub c_wsp<()>, do_parse!(
     alt!(
         map!(tuple!(c_nl, WSP), |_| ()) |
         map!(WSP, |_| ())
@@ -245,9 +276,12 @@ named!(pub c_wsp<()>, do_parse!(
     )
 ));
 
-/// c-nl = comment / CRLF
-///         ; comment or newline
-named!(pub c_nl<()>, do_parse!(
+named_attr!(#[doc = r#"
+```text
+c-nl = comment / CRLF
+        ; comment or newline
+```
+"#], pub c_nl<()>, do_parse!(
     alt!(
         comment |
         map!(CRLF, |_| ())
@@ -256,8 +290,11 @@ named!(pub c_nl<()>, do_parse!(
     )
 ));
 
-/// comment = ";" *(WSP / VCHAR) CRLF
-named!(pub comment<()>, do_parse!(
+named_attr!(#[doc = r#"
+```text
+comment = ";" *(WSP / VCHAR) CRLF
+```
+"#], pub comment<()>, do_parse!(
     char!(';') >>
     many0!(
         alt!(
@@ -270,8 +307,11 @@ named!(pub comment<()>, do_parse!(
     )
 ));
 
-/// alternation = concatenation *(*c-wsp "/" *c-wsp concatenation)
-named!(pub alternation<Alternation>, do_parse!(
+named_attr!(#[doc = r#"
+```text
+alternation = concatenation *(*c-wsp "/" *c-wsp concatenation)
+```
+"#], pub alternation<Alternation>, do_parse!(
     concatenations: separated_list!(
         tuple!(many0!(c_wsp), char!('/'), many0!(c_wsp)),
         concatenation
@@ -282,8 +322,11 @@ named!(pub alternation<Alternation>, do_parse!(
     )
 ));
 
-// concatenation = repetition *(1*c-wsp repetition)
-named!(pub concatenation<Concatenation>, do_parse!(
+named_attr!(#[doc = r#"
+```text
+concatenation = repetition *(1*c-wsp repetition)
+```
+"#], pub concatenation<Concatenation>, do_parse!(
     repetitions: separated_list!(many0!(c_wsp), repetition) >> (
         Concatenation {
             repetitions
@@ -291,8 +334,11 @@ named!(pub concatenation<Concatenation>, do_parse!(
     )
 ));
 
-/// repetition = [repeat] element
-named!(pub repetition<Repetition>, do_parse!(
+named_attr!(#[doc = r#"
+```text
+repetition = [repeat] element
+```
+"#], pub repetition<Repetition>, do_parse!(
     repeat: opt!(repeat) >>
     element: element >> (
         Repetition {
@@ -302,8 +348,11 @@ named!(pub repetition<Repetition>, do_parse!(
     )
 ));
 
-/// repeat = 1*DIGIT / (*DIGIT "*" *DIGIT)
-named!(pub repeat<Repeat>, do_parse!(
+named_attr!(#[doc = r#"
+```text
+repeat = 1*DIGIT / (*DIGIT "*" *DIGIT)
+```
+"#], pub repeat<Repeat>, do_parse!(
     val: alt!(
         map!(tuple!(many0!(DIGIT), char!('*'), many0!(DIGIT)), |(min, _, max)| {
             let min = if min.len() > 0 {
@@ -329,8 +378,11 @@ named!(pub repeat<Repeat>, do_parse!(
     )
 ));
 
-/// element = rulename / group / option / char-val / num-val / prose-val
-named!(pub element<Element>, do_parse!(
+named_attr!(#[doc = r#"
+```text
+element = rulename / group / option / char-val / num-val / prose-val
+```
+"#], pub element<Element>, do_parse!(
     element: alt!(
         map!(rulename,  |e| Element::Rulename(e)) |
         map!(group,     |e| Element::Group(e)) |
@@ -343,8 +395,11 @@ named!(pub element<Element>, do_parse!(
     )
 ));
 
-/// group = "(" *c-wsp alternation *c-wsp ")"
-named!(pub group<Group>, do_parse!(
+named_attr!(#[doc = r#"
+```text
+group = "(" *c-wsp alternation *c-wsp ")"
+```
+"#], pub group<Group>, do_parse!(
     char!('(') >>
     many0!(c_wsp) >>
     alternation: alternation >>
@@ -356,8 +411,11 @@ named!(pub group<Group>, do_parse!(
     )
 ));
 
-/// option = "[" *c-wsp alternation *c-wsp "]"
-named!(pub option<Optional>, do_parse!(
+named_attr!(#[doc = r#"
+```text
+option = "[" *c-wsp alternation *c-wsp "]"
+```
+"#], pub option<Optional>, do_parse!(
     char!('[') >> 
     many0!(c_wsp) >>
     alternation: alternation >>
@@ -369,10 +427,13 @@ named!(pub option<Optional>, do_parse!(
     )
 ));
 
-/// char-val = DQUOTE *(%x20-21 / %x23-7E) DQUOTE
-///             ; quoted string of SP and VCHAR
-///             ;  without DQUOTE
-named!(pub char_val<String>, do_parse!(
+named_attr!(#[doc = r#"
+```text
+char-val = DQUOTE *(%x20-21 / %x23-7E) DQUOTE
+            ; quoted string of SP and VCHAR
+            ;  without DQUOTE
+```
+"#], pub char_val<String>, do_parse!(
     DQUOTE >>
     val: many0!(CHAR_VAL_CHARS) >>
     DQUOTE >> (
@@ -380,8 +441,11 @@ named!(pub char_val<String>, do_parse!(
     )
 ));
 
-/// num-val = "%" (bin-val / dec-val / hex-val)
-named!(pub num_val<Range>, do_parse!(
+named_attr!(#[doc = r#"
+```text
+num-val = "%" (bin-val / dec-val / hex-val)
+```
+"#], pub num_val<Range>, do_parse!(
     char!('%') >>
     range: alt!(
         bin_val |
@@ -392,10 +456,13 @@ named!(pub num_val<Range>, do_parse!(
     )
 ));
 
-/// bin-val = "b" 1*BIT [ 1*("." 1*BIT) / ("-" 1*BIT) ]
-///            ; series of concatenated bit values
-///            ;  or single ONEOF range
-named!(pub bin_val<Range>, do_parse!(
+named_attr!(#[doc = r#"
+```text
+bin-val = "b" 1*BIT [ 1*("." 1*BIT) / ("-" 1*BIT) ]
+           ; series of concatenated bit values
+           ;  or single ONEOF range
+```
+"#], pub bin_val<Range>, do_parse!(
     char!('b') >>
     start: map!(many1!(BIT), |val| {
         u32::from_str_radix(&val.into_iter().collect::<String>(), 2).expect("should never happen")
@@ -422,8 +489,11 @@ named!(pub bin_val<Range>, do_parse!(
     )
 ));
 
-/// dec-val = "d" 1*DIGIT [ 1*("." 1*DIGIT) / ("-" 1*DIGIT) ]
-named!(pub dec_val<Range>, do_parse!(
+named_attr!(#[doc = r#"
+```text
+dec-val = "d" 1*DIGIT [ 1*("." 1*DIGIT) / ("-" 1*DIGIT) ]
+```
+"#], pub dec_val<Range>, do_parse!(
     char!('d') >>
     start: map!(many1!(DIGIT), |val| {
         u32::from_str_radix(&val.into_iter().collect::<String>(), 10).unwrap()
@@ -450,8 +520,11 @@ named!(pub dec_val<Range>, do_parse!(
     )
 ));
 
-/// hex-val = "x" 1*HEXDIG [ 1*("." 1*HEXDIG) / ("-" 1*HEXDIG) ]
-named!(pub hex_val<Range>, do_parse!(
+named_attr!(#[doc = r#"
+```text
+hex-val = "x" 1*HEXDIG [ 1*("." 1*HEXDIG) / ("-" 1*HEXDIG) ]
+```
+"#], pub hex_val<Range>, do_parse!(
     char!('x') >>
     start: map!(many1!(HEXDIG), |val| {
         u32::from_str_radix(&val.into_iter().collect::<String>(), 16).unwrap()
@@ -478,10 +551,13 @@ named!(pub hex_val<Range>, do_parse!(
     )
 ));
 
-/// prose-val = "<" *(%x20-3D / %x3F-7E) ">"
-///              ; bracketed string of SP and VCHAR without angles
-///              ; prose description, to be used as last resort
-named!(pub prose_val<String>, do_parse!(
+named_attr!(#[doc = r#"
+```text
+prose-val = "<" *(%x20-3D / %x3F- E) ">"
+             ; bracketed string of SP and VCHAR without angles
+             ; prose description, to be used as last resort
+```
+"#], pub prose_val<String>, do_parse!(
     char!('<') >> 
     val: many0!(PROSE_VAL_CHARS) >>
     char!('>') >> (
