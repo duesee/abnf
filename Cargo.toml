@@ -1,13 +1,14 @@
 [package]
 name = "abnf"
 description = "A nom-based parser for ABNF."
-version = "0.1.3"
+version = "0.2.0"
 authors = ["Damian Poddebniak <poddebniak@fh-muenster.de>"]
 readme = "README.md"
 license = "AGPL-3.0"
+edition = "2018"
 
 repository = "https://github.com/duesee/abnf"
 keywords = ["abnf", "parser", "nom"]
 
 [dependencies]
-nom = "4.2.3"
+nom = "5"

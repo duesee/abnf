@@ -6,16 +6,15 @@
 //! See https://tools.ietf.org/html/rfc5234#section-4
 //!
 
-//
-// TODO: can we replace nom's
-//   named_attr!(#[doc = ""], ...
-// with something less distracting? We should document public functions,
-// but currently nom's syntax is really hard to read in the source code.
-//
-
 use super::core::*;
 
-use nom::{Context, Err, ErrorKind, IResult, Needed};
+use nom::branch::alt;
+use nom::bytes::complete::{tag, take_while};
+use nom::character::complete::char;
+use nom::combinator::{map, opt};
+use nom::multi::{many0, many1};
+use nom::sequence::tuple;
+use nom::IResult;
 use std::fmt;
 
 #[derive(Debug, Clone)]
@@ -145,7 +144,7 @@ impl fmt::Display for Group {
 
 #[derive(Debug, Clone)]
 pub struct Optional {
-    pub alternation: Alternation
+    pub alternation: Alternation,
 }
 
 impl fmt::Display for Optional {
@@ -180,421 +179,359 @@ impl fmt::Display for Range {
     }
 }
 
-named_attr!(#[doc = r#"
-```text
-rulelist = 1*( rule / (*WSP c-nl) )
-```
-"#], pub rulelist_comp<Vec<Rule>>, do_parse!(
-    all: many1!(
-        complete!(alt!(
-            map!(rule, |rule| Some(rule)) |
-            map!(tuple!(many0!(WSP), c_nl), |_| None)
-        ))
-    ) >> ({
-        let mut res = vec![];
-        for item in all.into_iter() {
-            if let Some(rule) = item {
-                res.push(rule)
-            }
+/// Errata ID: 3076
+/// rulelist = 1*( rule / (*WSP c-nl) )
+pub fn rulelist(input: &[u8]) -> IResult<&[u8], Vec<Rule>> {
+    let parser = many1(alt((
+        map(rule, |rule| Some(rule)),
+        map(tuple((many0(WSP), c_nl)), |_| None),
+    )));
+
+    let (input, rulelist) = parser(input)?;
+
+    let mut res = vec![];
+    for rule in rulelist.into_iter() {
+        if let Some(rule) = rule {
+            res.push(rule)
         }
-        res
-    })
-));
+    }
 
-named_attr!(#[doc = r#"
-```text
-rule = rulename defined-as elements c-nl
-        ; continues if next line starts
-        ;  with white space
-```
-"#], pub rule<Rule>, do_parse!(
-    name: rulename >>
-    defined_as >>
-    elements: elements >>
-    c_nl >> (
-        Rule {
-            name,
-            elements,
-        }
-    )
-));
+    Ok((input, res))
+}
 
-named_attr!(#[doc = r#"
-```text
-rulename = ALPHA *(ALPHA / DIGIT / "-")
-```
-"#], pub rulename<String>, do_parse!(
-    head: ALPHA >>
-    tail: many0!(
-        alt!(
-            ALPHA |
-            DIGIT |
-            char!('-')
-        )
-    ) >> ({
-        let mut name = vec![head];
-        name.extend(tail);
-        name.into_iter().collect::<String>()
-    })
-));
+/// rule = rulename defined-as elements c-nl
+///         ; continues if next line starts
+///         ;  with white space
+pub fn rule(input: &[u8]) -> IResult<&[u8], Rule> {
+    let parser = tuple((rulename, defined_as, elements, c_nl));
 
-named_attr!(#[doc = r#"
-```text
-defined-as = *c-wsp ("=" / "=/") *c-wsp
-              ; basic rules definition and
-              ;  incremental alternatives
-```
-"#], pub defined_as<()>, do_parse!(
-    many0!(c_wsp) >>
-    alt!(tag!("=/") | tag!("=")) >>
-    many0!(c_wsp) >> (
-        ()
-    )
-));
+    let (input, (name, _, elements, _)) = parser(input)?;
 
-named_attr!(#[doc = r#"
-```text
-elements = alternation *WSP
-```
-"#], pub elements<Alternation>, do_parse!(
-    alternation: alternation >>
-    many0!(WSP) >> (
-        alternation
-    )
-));
+    Ok((input, Rule { name, elements }))
+}
 
-named_attr!(#[doc = r#"
-```text
-c-wsp = WSP / (c-nl WSP)
-```
-"#], pub c_wsp<()>, do_parse!(
-    alt!(
-        map!(tuple!(c_nl, WSP), |_| ()) |
-        map!(WSP, |_| ())
-    ) >> (
+/// rulename = ALPHA *(ALPHA / DIGIT / "-")
+pub fn rulename(input: &[u8]) -> IResult<&[u8], String> {
+    let valid = |x| is_ALPHA(x) || is_DIGIT(x) || x == '-' as u8;
 
-    )
-));
+    let (input, (head, tail)) = tuple((ALPHA, take_while(valid)))(input)?;
 
-named_attr!(#[doc = r#"
-```text
-c-nl = comment / CRLF
-        ; comment or newline
-```
-"#], pub c_nl<()>, do_parse!(
-    alt!(
-        comment |
-        map!(CRLF, |_| ())
-    ) >> (
+    let mut val = vec![head as u8];
+    val.extend(tail.iter());
 
-    )
-));
+    Ok((input, val.into_iter().map(|x| x as char).collect()))
+}
 
-named_attr!(#[doc = r#"
-```text
-comment = ";" *(WSP / VCHAR) CRLF
-```
-"#], pub comment<()>, do_parse!(
-    char!(';') >>
-    many0!(
-        alt!(
-            WSP |
-            VCHAR
-        )
-    ) >>
-    CRLF >> (
+/// defined-as = *c-wsp ("=" / "=/") *c-wsp
+///               ; basic rules definition and
+///               ;  incremental alternatives
+pub fn defined_as(input: &[u8]) -> IResult<&[u8], ()> {
+    let parser = tuple((many0(c_wsp), alt((tag("=/"), tag("="))), many0(c_wsp)));
 
-    )
-));
+    let (input, _) = parser(input)?;
 
-named_attr!(#[doc = r#"
-```text
-alternation = concatenation *(*c-wsp "/" *c-wsp concatenation)
-```
-"#], pub alternation<Alternation>, do_parse!(
-    concatenations: separated_list!(
-        tuple!(many0!(c_wsp), char!('/'), many0!(c_wsp)),
-        concatenation
-    ) >> (
-        Alternation {
-            concatenations
-        }
-    )
-));
+    Ok((input, ()))
+}
 
-named_attr!(#[doc = r#"
-```text
-concatenation = repetition *(1*c-wsp repetition)
-```
-"#], pub concatenation<Concatenation>, do_parse!(
-    repetitions: separated_list!(many0!(c_wsp), repetition) >> (
-        Concatenation {
-            repetitions
-        }
-    )
-));
+/// Errata ID: 2968
+/// elements = alternation *WSP
+pub fn elements(input: &[u8]) -> IResult<&[u8], Alternation> {
+    let parser = tuple((alternation, many0(WSP)));
 
-named_attr!(#[doc = r#"
-```text
-repetition = [repeat] element
-```
-"#], pub repetition<Repetition>, do_parse!(
-    repeat: opt!(repeat) >>
-    element: element >> (
-        Repetition {
-            repeat,
-            element,
-        }
-    )
-));
+    let (input, (alternation, _)) = parser(input)?;
 
-named_attr!(#[doc = r#"
-```text
-repeat = 1*DIGIT / (*DIGIT "*" *DIGIT)
-```
-"#], pub repeat<Repeat>, do_parse!(
-    val: alt!(
-        map!(tuple!(many0!(DIGIT), char!('*'), many0!(DIGIT)), |(min, _, max)| {
-            let min = if min.len() > 0 {
-                Some(usize::from_str_radix(&min.into_iter().collect::<String>(), 10).unwrap())
-            } else {
-                None
-            };
+    Ok((input, alternation))
+}
 
-            let max = if max.len() > 0 {
-                Some(usize::from_str_radix(&max.into_iter().collect::<String>(), 10).unwrap())
-            } else {
-                None
-            };
+///c-wsp = WSP / (c-nl WSP)
+pub fn c_wsp(input: &[u8]) -> IResult<&[u8], ()> {
+    let parser = alt((map(WSP, |_| ()), map(tuple((c_nl, WSP)), |_| ())));
 
-            Repeat { min, max }
-        }) |
-        map!(many1!(DIGIT), |min| {
+    let (input, _) = parser(input)?;
+
+    Ok((input, ()))
+}
+
+/// c-nl = comment / CRLF ; comment or newline
+pub fn c_nl(input: &[u8]) -> IResult<&[u8], ()> {
+    let parser = alt((comment, map(CRLF, |_| ())));
+
+    let (input, _) = parser(input)?;
+
+    Ok((input, ()))
+}
+
+/// comment = ";" *(WSP / VCHAR) CRLF
+pub fn comment(input: &[u8]) -> IResult<&[u8], ()> {
+    let valid = |x| is_WSP(x) || is_VCHAR(x);
+
+    let (input, (_, _, _)) = tuple((char(';'), take_while(valid), CRLF))(input)?;
+
+    Ok((input, ()))
+}
+
+/// alternation = concatenation *(*c-wsp "/" *c-wsp concatenation)
+pub fn alternation(input: &[u8]) -> IResult<&[u8], Alternation> {
+    let parser = tuple((
+        concatenation,
+        many0(tuple((
+            many0(c_wsp),
+            char('/'),
+            many0(c_wsp),
+            concatenation,
+        ))),
+    ));
+
+    let (input, (head, tail)) = parser(input)?;
+
+    let mut concatenations = vec![head];
+
+    for (_, _, _, item) in tail {
+        concatenations.push(item)
+    }
+
+    Ok((input, Alternation { concatenations }))
+}
+
+/// concatenation = repetition *(1*c-wsp repetition)
+pub fn concatenation(input: &[u8]) -> IResult<&[u8], Concatenation> {
+    let parser = tuple((repetition, many0(tuple((many1(c_wsp), repetition)))));
+
+    let (input, (head, tail)) = parser(input)?;
+
+    let mut repetitions = vec![head];
+
+    for (_, item) in tail {
+        repetitions.push(item)
+    }
+
+    Ok((input, Concatenation { repetitions }))
+}
+
+/// repetition = [repeat] element
+pub fn repetition(input: &[u8]) -> IResult<&[u8], Repetition> {
+    let parser = tuple((opt(repeat), element));
+
+    let (input, (repeat, element)) = parser(input)?;
+
+    Ok((input, Repetition { repeat, element }))
+}
+
+/// repeat = 1*DIGIT / (*DIGIT "*" *DIGIT)
+pub fn repeat(input: &[u8]) -> IResult<&[u8], Repeat> {
+    let parser = alt((
+        map(
+            tuple((many0(DIGIT), char('*'), many0(DIGIT))),
+            |(min, _, max)| {
+                let min = if min.len() > 0 {
+                    Some(usize::from_str_radix(&min.into_iter().collect::<String>(), 10).unwrap())
+                } else {
+                    None
+                };
+
+                let max = if max.len() > 0 {
+                    Some(usize::from_str_radix(&max.into_iter().collect::<String>(), 10).unwrap())
+                } else {
+                    None
+                };
+
+                Repeat { min, max }
+            },
+        ),
+        map(many1(DIGIT), |min| {
             let min = usize::from_str_radix(&min.into_iter().collect::<String>(), 10).unwrap();
-            Repeat { min: Some(min), max: Some(min) }
-        })
-    ) >> (
-        val
-    )
-));
+            Repeat {
+                min: Some(min),
+                max: Some(min),
+            }
+        }),
+    ));
 
-named_attr!(#[doc = r#"
-```text
-element = rulename / group / option / char-val / num-val / prose-val
-```
-"#], pub element<Element>, do_parse!(
-    element: alt!(
-        map!(rulename,  |e| Element::Rulename(e)) |
-        map!(group,     |e| Element::Group(e)) |
-        map!(option,    |e| Element::Option(e)) |
-        map!(char_val,  |e| Element::CharVal(e)) |
-        map!(num_val,   |e| Element::NumVal(e)) |
-        map!(prose_val, |e| Element::ProseVal(e))
-    ) >> (
-        element
-    )
-));
+    let (input, repeat) = parser(input)?;
 
-named_attr!(#[doc = r#"
-```text
-group = "(" *c-wsp alternation *c-wsp ")"
-```
-"#], pub group<Group>, do_parse!(
-    char!('(') >>
-    many0!(c_wsp) >>
-    alternation: alternation >>
-    many0!(c_wsp) >>
-    char!(')') >> (
-        Group {
-            alternation
-        }
-    )
-));
+    Ok((input, repeat))
+}
 
-named_attr!(#[doc = r#"
-```text
-option = "[" *c-wsp alternation *c-wsp "]"
-```
-"#], pub option<Optional>, do_parse!(
-    char!('[') >> 
-    many0!(c_wsp) >>
-    alternation: alternation >>
-    many0!(c_wsp) >>
-    char!(']') >> (
-        Optional {
-            alternation
-        }
-    )
-));
+/// element = rulename / group / option / char-val / num-val / prose-val
+pub fn element(input: &[u8]) -> IResult<&[u8], Element> {
+    let parser = alt((
+        map(rulename, |e| Element::Rulename(e)),
+        map(group, |e| Element::Group(e)),
+        map(option, |e| Element::Option(e)),
+        map(char_val, |e| Element::CharVal(e)),
+        map(num_val, |e| Element::NumVal(e)),
+        map(prose_val, |e| Element::ProseVal(e)),
+    ));
 
-named_attr!(#[doc = r#"
-```text
-char-val = DQUOTE *(%x20-21 / %x23-7E) DQUOTE
-            ; quoted string of SP and VCHAR
-            ;  without DQUOTE
-```
-"#], pub char_val<String>, do_parse!(
-    DQUOTE >>
-    val: many0!(CHAR_VAL_CHARS) >>
-    DQUOTE >> (
-        val.into_iter().collect()
-    )
-));
+    let (input, val) = parser(input)?;
 
-named_attr!(#[doc = r#"
-```text
-num-val = "%" (bin-val / dec-val / hex-val)
-```
-"#], pub num_val<Range>, do_parse!(
-    char!('%') >>
-    range: alt!(
-        bin_val |
-        dec_val |
-        hex_val
-    ) >> (
-        range
-    )
-));
+    Ok((input, val))
+}
 
-named_attr!(#[doc = r#"
-```text
-bin-val = "b" 1*BIT [ 1*("." 1*BIT) / ("-" 1*BIT) ]
-           ; series of concatenated bit values
-           ;  or single ONEOF range
-```
-"#], pub bin_val<Range>, do_parse!(
-    char!('b') >>
-    start: map!(many1!(BIT), |val| {
+/// group = "(" *c-wsp alternation *c-wsp ")"
+pub fn group(input: &[u8]) -> IResult<&[u8], Group> {
+    let parser = tuple((
+        char('('),
+        many0(c_wsp),
+        alternation,
+        many0(c_wsp),
+        char(')'),
+    ));
+
+    let (input, (_, _, alternation, _, _)) = parser(input)?;
+
+    Ok((input, Group { alternation }))
+}
+
+/// option = "[" *c-wsp alternation *c-wsp "]"
+pub fn option(input: &[u8]) -> IResult<&[u8], Optional> {
+    let parser = tuple((
+        char('['),
+        many0(c_wsp),
+        alternation,
+        many0(c_wsp),
+        char(']'),
+    ));
+
+    let (input, (_, _, alternation, _, _)) = parser(input)?;
+
+    Ok((input, Optional { alternation }))
+}
+
+/// char-val = DQUOTE *(%x20-21 / %x23-7E) DQUOTE
+///             ; quoted string of SP and VCHAR
+///             ;  without DQUOTE
+pub fn char_val(input: &[u8]) -> IResult<&[u8], String> {
+    let char_val_chars = |x| match x {
+        0x20..=0x21 | 0x23..=0x7E => true,
+        _ => false,
+    };
+
+    let (input, (_, val, _)) = tuple((DQUOTE, take_while(char_val_chars), DQUOTE))(input)?;
+
+    Ok((input, val.into_iter().map(|b| *b as char).collect()))
+}
+
+/// num-val = "%" (bin-val / dec-val / hex-val)
+pub fn num_val(input: &[u8]) -> IResult<&[u8], Range> {
+    let parser = tuple((char('%'), alt((bin_val, dec_val, hex_val))));
+
+    let (input, (_, range)) = parser(input)?;
+
+    Ok((input, range))
+}
+
+/// bin-val = "b" 1*BIT [ 1*("." 1*BIT) / ("-" 1*BIT) ]
+///            ; series of concatenated bit values
+///            ;  or single ONEOF range
+pub fn bin_val(input: &[u8]) -> IResult<&[u8], Range> {
+    let (input, _) = char('b')(input)?;
+
+    let (input, start) = map(many1(BIT), |val| {
         u32::from_str_radix(&val.into_iter().collect::<String>(), 2).expect("should never happen")
-    }) >>
-    compl: opt!(
-        alt!(
-            map!(many1!(tuple!(char!('.'), many1!(BIT))), |pairs| {
-                let mut all = vec![start];
-                for (_, val) in pairs.into_iter() {
-                    all.push(u32::from_str_radix(&val.into_iter().collect::<String>(), 2).expect("should never happen"))
-                }
-                Range::OneOf(all)
-            }) |
-            map!(tuple!(char!('-'), many1!(BIT)), |(_, end)| {
-                Range::Range(start, u32::from_str_radix(&end.into_iter().collect::<String>(), 2).expect("should never happen"))
-            })
-        )
-    ) >> (
-        if let Some(r) = compl {
-            r
-        } else {
-            Range::OneOf(vec![start])
-        }
-    )
-));
+    })(input)?;
 
-named_attr!(#[doc = r#"
-```text
-dec-val = "d" 1*DIGIT [ 1*("." 1*DIGIT) / ("-" 1*DIGIT) ]
-```
-"#], pub dec_val<Range>, do_parse!(
-    char!('d') >>
-    start: map!(many1!(DIGIT), |val| {
-        u32::from_str_radix(&val.into_iter().collect::<String>(), 10).unwrap()
-    }) >>
-    compl: opt!(
-        alt!(
-            map!(many1!(tuple!(char!('.'), many1!(DIGIT))), |pairs| {
-                let mut all = vec![start];
-                for (_, val) in pairs.into_iter() {
-                    all.push(u32::from_str_radix(&val.into_iter().collect::<String>(), 10).unwrap())
-                }
-                Range::OneOf(all)
-            }) |
-            map!(tuple!(char!('-'), many1!(DIGIT)), |(_, end)| {
-                Range::Range(start, u32::from_str_radix(&end.into_iter().collect::<String>(), 10).unwrap())
-            })
-        )
-    ) >> (
-        if let Some(r) = compl {
-            r
-        } else {
-            Range::OneOf(vec![start])
-        }
-    )
-));
+    let (input, compl) = opt(alt((
+        map(many1(tuple((char('.'), many1(BIT)))), |pairs| {
+            let mut all = vec![start];
+            for (_, val) in pairs.into_iter() {
+                all.push(
+                    u32::from_str_radix(&val.into_iter().collect::<String>(), 2)
+                        .expect("should never happen"),
+                )
+            }
+            Range::OneOf(all)
+        }),
+        map(tuple((char('-'), many1(BIT))), |(_, end)| {
+            Range::Range(
+                start,
+                u32::from_str_radix(&end.into_iter().collect::<String>(), 2)
+                    .expect("should never happen"),
+            )
+        }),
+    )))(input)?;
 
-named_attr!(#[doc = r#"
-```text
-hex-val = "x" 1*HEXDIG [ 1*("." 1*HEXDIG) / ("-" 1*HEXDIG) ]
-```
-"#], pub hex_val<Range>, do_parse!(
-    char!('x') >>
-    start: map!(many1!(HEXDIG), |val| {
-        u32::from_str_radix(&val.into_iter().collect::<String>(), 16).unwrap()
-    }) >>
-    compl: opt!(
-        alt!(
-            map!(many1!(tuple!(char!('.'), many1!(HEXDIG))), |pairs| {
-                let mut all = vec![start];
-                for (_, val) in pairs.into_iter() {
-                    all.push(u32::from_str_radix(&val.into_iter().collect::<String>(), 16).unwrap())
-                }
-                Range::OneOf(all)
-            }) |
-            map!(tuple!(char!('-'), many1!(HEXDIG)), |(_, end)| {
-                Range::Range(start, u32::from_str_radix(&end.into_iter().collect::<String>(), 16).unwrap())
-            })
-        )
-    ) >> (
-        if let Some(r) = compl {
-            r
-        } else {
-            Range::OneOf(vec![start])
-        }
-    )
-));
-
-named_attr!(#[doc = r#"
-```text
-prose-val = "<" *(%x20-3D / %x3F- E) ">"
-             ; bracketed string of SP and VCHAR without angles
-             ; prose description, to be used as last resort
-```
-"#], pub prose_val<String>, do_parse!(
-    char!('<') >> 
-    val: many0!(PROSE_VAL_CHARS) >>
-    char!('>') >> (
-        val.into_iter().collect()
-    )
-));
-
-fn CHAR_VAL_CHARS(i:&[u8]) -> IResult<&[u8], char> {
-    if i.len() < 1 {
-        Err(Err::Incomplete(Needed::Size(1)))
+    if let Some(r) = compl {
+        Ok((input, r))
     } else {
-        match i[0] {
-            0x20 ..= 0x21 | 0x23 ..= 0x7E => {
-                Ok((&i[1..], i[0] as char))
-            }
-            _ => {
-                let e:ErrorKind<u32> = ErrorKind::Tag;
-                Err(Err::Error(Context::Code(i, e)))
-            }
-        }
+        Ok((input, Range::OneOf(vec![start])))
     }
 }
 
-fn PROSE_VAL_CHARS(i:&[u8]) -> IResult<&[u8], char> {
-    if i.len() < 1 {
-        Err(Err::Incomplete(Needed::Size(1)))
+/// dec-val = "d" 1*DIGIT [ 1*("." 1*DIGIT) / ("-" 1*DIGIT) ]
+pub fn dec_val(input: &[u8]) -> IResult<&[u8], Range> {
+    let (input, _) = char('d')(input)?;
+
+    let (input, start) = map(many1(DIGIT), |val| {
+        u32::from_str_radix(&val.into_iter().collect::<String>(), 10).unwrap()
+    })(input)?;
+
+    let (input, compl) = opt(alt((
+        map(many1(tuple((char('.'), many1(DIGIT)))), |pairs| {
+            let mut all = vec![start];
+            for (_, val) in pairs.into_iter() {
+                all.push(u32::from_str_radix(&val.into_iter().collect::<String>(), 10).unwrap())
+            }
+            Range::OneOf(all)
+        }),
+        map(tuple((char('-'), many1(DIGIT))), |(_, end)| {
+            Range::Range(
+                start,
+                u32::from_str_radix(&end.into_iter().collect::<String>(), 10).unwrap(),
+            )
+        }),
+    )))(input)?;
+
+    if let Some(r) = compl {
+        Ok((input, r))
     } else {
-        match i[0] {
-            0x20 ..= 0x3D | 0x3F ..= 0x7E => {
-                Ok((&i[1..], i[0] as char))
-            }
-            _ => {
-                let e:ErrorKind<u32> = ErrorKind::Tag;
-                Err(Err::Error(Context::Code(i, e)))
-            }
-        }
+        Ok((input, Range::OneOf(vec![start])))
     }
+}
+
+/// hex-val = "x" 1*HEXDIG [ 1*("." 1*HEXDIG) / ("-" 1*HEXDIG) ]
+pub fn hex_val(input: &[u8]) -> IResult<&[u8], Range> {
+    let (input, _) = char('x')(input)?;
+
+    let (input, start) = map(many1(HEXDIG), |val| {
+        u32::from_str_radix(&val.into_iter().collect::<String>(), 16).unwrap()
+    })(input)?;
+
+    let (input, compl) = opt(alt((
+        map(many1(tuple((char('.'), many1(HEXDIG)))), |pairs| {
+            let mut all = vec![start];
+            for (_, val) in pairs.into_iter() {
+                all.push(u32::from_str_radix(&val.into_iter().collect::<String>(), 16).unwrap())
+            }
+            Range::OneOf(all)
+        }),
+        map(tuple((char('-'), many1(HEXDIG))), |(_, end)| {
+            Range::Range(
+                start,
+                u32::from_str_radix(&end.into_iter().collect::<String>(), 16).unwrap(),
+            )
+        }),
+    )))(input)?;
+
+    if let Some(r) = compl {
+        Ok((input, r))
+    } else {
+        Ok((input, Range::OneOf(vec![start])))
+    }
+}
+
+/// prose-val = "<" *(%x20-3D / %x3F-7E) ">"
+///             ; bracketed string of SP and VCHAR without angles
+///             ; prose description, to be used as last resort
+pub fn prose_val(input: &[u8]) -> IResult<&[u8], String> {
+    let prose_val_chars = |x| match x {
+        0x20..=0x3D | 0x3F..=0x7E => true,
+        _ => false,
+    };
+
+    let (input, (_, val, _)) = tuple((char('<'), take_while(prose_val_chars), char('>')))(input)?;
+
+    Ok((input, val.into_iter().map(|b| *b as char).collect()))
 }
 
 #[cfg(test)]
@@ -602,11 +539,41 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_rule() {
+        let (remaining, res) = rule(b"rule = A / B ; comment\n").unwrap();
+        assert!(remaining.len() == 0);
+        println!("{:?}", res);
+    }
+
+    #[test]
+    fn test_rulename() {
+        assert_eq!(rulename(b"a").unwrap().1, "a");
+        assert_eq!(rulename(b"A").unwrap().1, "A");
+        assert_eq!(rulename(b"ab").unwrap().1, "ab");
+        assert_eq!(rulename(b"Ab").unwrap().1, "Ab");
+        assert_eq!(rulename(b"A-b").unwrap().1, "A-b");
+    }
+
+    #[test]
+    fn test_alternation() {
+        let (remaining, res) = alternation(b"A / \"xxx\"").unwrap();
+        assert!(remaining.len() == 0);
+        println!("{:?}", res);
+    }
+
+    #[test]
+    fn test_repetition() {
+        let (remaining, res) = repetition(b"1*1A").unwrap();
+        assert!(remaining.len() == 0);
+        println!("{:?}", res);
+    }
+
+    #[test]
     fn test_num_val() {
         let expected = Range::OneOf(vec![0x00, 0x0A, 0xff]);
-        let got1 = num_val(b"%b0.1010.11111111?");
-        let got2 = num_val(b"%d0.10.255?");
-        let got3 = num_val(b"%x0.A.ff?");
+        let got1 = num_val(b"%b0.1010.11111111");
+        let got2 = num_val(b"%d0.10.255");
+        let got3 = num_val(b"%x0.A.ff");
         assert_eq!(expected, got1.unwrap().1);
         assert_eq!(expected, got2.unwrap().1);
         assert_eq!(expected, got3.unwrap().1);
@@ -615,33 +582,33 @@ mod tests {
     #[test]
     fn test_bin_val() {
         let expected = Range::OneOf(vec![0x00, 0x03, 0xff]);
-        let got = bin_val(b"b00.11.11111111?");
+        let got = bin_val(b"b00.11.11111111");
         assert_eq!(expected, got.unwrap().1);
 
         let expected = Range::Range(0, 255);
-        let got = bin_val(b"b00-11111111?");
+        let got = bin_val(b"b00-11111111");
         assert_eq!(expected, got.unwrap().1)
     }
 
     #[test]
     fn test_dec_val() {
         let expected = Range::OneOf(vec![0, 42, 255]);
-        let got = dec_val(b"d0.42.255?");
+        let got = dec_val(b"d0.42.255");
         assert_eq!(expected, got.unwrap().1);
 
         let expected = Range::Range(0, 255);
-        let got = dec_val(b"d0-255?");
+        let got = dec_val(b"d0-255");
         assert_eq!(expected, got.unwrap().1)
     }
 
     #[test]
     fn test_hex_val() {
         let expected = Range::OneOf(vec![0xCA, 0xFF, 0xEE]);
-        let got = hex_val(b"xCA.FF.EE?");
+        let got = hex_val(b"xCA.FF.EE");
         assert_eq!(expected, got.unwrap().1);
 
         let expected = Range::Range(0, 255);
-        let got = hex_val(b"x00-FF?");
+        let got = hex_val(b"x00-FF");
         assert_eq!(expected, got.unwrap().1)
     }
 
