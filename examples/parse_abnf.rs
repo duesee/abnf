@@ -36,6 +36,7 @@ fn main() -> std::io::Result<()> {
     let (remaining, rules) = rulelist(&data).unwrap();
 
     for rule in &rules {
+        println!("[!] {}", rule);
         println!("[!] {:#?}\n", rule);
     }
 

@@ -164,10 +164,13 @@ pub fn repetition(input: &[u8]) -> IResult<&[u8], Node> {
 
     // if there is no repeat, do not wrap it in a `Node::Repetition`.
     if repeat.is_some() {
-        Ok((input, Node::Repetition {
-            repeat: repeat,
-            node: Box::new(node),
-        }))
+        Ok((
+            input,
+            Node::Repetition {
+                repeat: repeat,
+                node: Box::new(node),
+            },
+        ))
     } else {
         Ok((input, node))
     }
@@ -398,39 +401,66 @@ mod tests {
     fn test_rules() {
         let tests = vec![
             ("a = A\n", Rule::new("a", Node::Rulename("A".into()))),
-            ("B = A / B\n", Rule::new("B", Node::Alternation(vec![
-                Box::new(Node::Rulename("A".into())),
-                Box::new(Node::Rulename("B".into())),
-            ]))),
-            ("c = (A / B)\n", Rule::new("c", Node::Group(Box::new(Node::Alternation(vec![
-                Box::new(Node::Rulename("A".into())),
-                Box::new(Node::Rulename("B".into())),
-            ]))))),
-            ("D = <this is prose>\n", Rule::new("D", Node::ProseVal("this is prose".into()))),
-            ("xXx = ((A B))\n", Rule::new("xXx", Node::Group(
-                Box::new(Node::Group(
-                    Box::new(
-                        Node::Concatenation(vec![
-                            Box::new(Node::Rulename("A".into())),
-                            Box::new(Node::Rulename("B".into())),
-                        ])
-                    )
-                ))
-            ))),
-            ("a = 0*15\"-\"\n", Rule::new("a", Node::Repetition {
-                repeat: Some(Repeat {
-                    min: Some(0),
-                    max: Some(15),
-                }),
-                node: Box::new(Node::CharVal("-".into()))
-            })),
-            ("a = *\"-\"\n", Rule::new("a", Node::Repetition {
-                repeat: Some(Repeat {
-                    min: None,
-                    max: None,
-                }),
-                node: Box::new(Node::CharVal("-".into()))
-            })),
+            (
+                "B = A / B\n",
+                Rule::new(
+                    "B",
+                    Node::Alternation(vec![
+                        Box::new(Node::Rulename("A".into())),
+                        Box::new(Node::Rulename("B".into())),
+                    ]),
+                ),
+            ),
+            (
+                "c = (A / B)\n",
+                Rule::new(
+                    "c",
+                    Node::Group(Box::new(Node::Alternation(vec![
+                        Box::new(Node::Rulename("A".into())),
+                        Box::new(Node::Rulename("B".into())),
+                    ]))),
+                ),
+            ),
+            (
+                "D = <this is prose>\n",
+                Rule::new("D", Node::ProseVal("this is prose".into())),
+            ),
+            (
+                "xXx = ((A B))\n",
+                Rule::new(
+                    "xXx",
+                    Node::Group(Box::new(Node::Group(Box::new(Node::Concatenation(vec![
+                        Box::new(Node::Rulename("A".into())),
+                        Box::new(Node::Rulename("B".into())),
+                    ]))))),
+                ),
+            ),
+            (
+                "a = 0*15\"-\"\n",
+                Rule::new(
+                    "a",
+                    Node::Repetition {
+                        repeat: Some(Repeat {
+                            min: Some(0),
+                            max: Some(15),
+                        }),
+                        node: Box::new(Node::CharVal("-".into())),
+                    },
+                ),
+            ),
+            (
+                "a = *\"-\"\n",
+                Rule::new(
+                    "a",
+                    Node::Repetition {
+                        repeat: Some(Repeat {
+                            min: None,
+                            max: None,
+                        }),
+                        node: Box::new(Node::CharVal("-".into())),
+                    },
+                ),
+            ),
         ];
 
         for (test, expected) in tests {
