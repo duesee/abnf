@@ -128,7 +128,12 @@ pub fn alternation(input: &[u8]) -> IResult<&[u8], Node> {
         concatenations.push(Box::new(item))
     }
 
-    Ok((input, Node::Alternation(concatenations)))
+    // if alternation has only one child, do not wrap it in a `Node::Alternation`.
+    if concatenations.len() == 1 {
+        Ok((input, *concatenations.pop().unwrap()))
+    } else {
+        Ok((input, Node::Alternation(concatenations)))
+    }
 }
 
 /// concatenation = repetition *(1*c-wsp repetition)
@@ -143,7 +148,12 @@ pub fn concatenation(input: &[u8]) -> IResult<&[u8], Node> {
         repetitions.push(Box::new(item))
     }
 
-    Ok((input, Node::Concatenation(repetitions)))
+    // if concatenation has only one child, do not wrap it in a `Node::Concatenation`.
+    if repetitions.len() == 1 {
+        Ok((input, *repetitions.pop().unwrap()))
+    } else {
+        Ok((input, Node::Concatenation(repetitions)))
+    }
 }
 
 /// repetition = [repeat] element
@@ -152,10 +162,15 @@ pub fn repetition(input: &[u8]) -> IResult<&[u8], Node> {
 
     let (input, (repeat, node)) = parser(input)?;
 
-    Ok((input, Node::Repetition {
-        repeat: repeat,
-        node: Box::new(node),
-    }))
+    // if there is no repeat, do not wrap it in a `Node::Repetition`.
+    if repeat.is_some() {
+        Ok((input, Node::Repetition {
+            repeat: repeat,
+            node: Box::new(node),
+        }))
+    } else {
+        Ok((input, node))
+    }
 }
 
 /// repeat = 1*DIGIT / (*DIGIT "*" *DIGIT)
@@ -197,8 +212,8 @@ pub fn repeat(input: &[u8]) -> IResult<&[u8], Repeat> {
 pub fn element(input: &[u8]) -> IResult<&[u8], Node> {
     let parser = alt((
         map(rulename, |e| Node::Rulename(e)),
-        map(group, |e| Node::Group(Box::new(e))),
-        map(option, |e| Node::Optional(Box::new(e))),
+        map(group, |e| e),
+        map(option, |e| e),
         map(char_val, |e| Node::CharVal(e)),
         map(num_val, |e| Node::NumVal(e)),
         map(prose_val, |e| Node::ProseVal(e)),
@@ -380,10 +395,49 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_rule() {
-        let (remaining, res) = rule(b"rule = A / B ; comment\n").unwrap();
-        assert!(remaining.len() == 0);
-        println!("{:?}", res);
+    fn test_rules() {
+        let tests = vec![
+            ("a = A\n", Rule::new("a", Node::Rulename("A".into()))),
+            ("B = A / B\n", Rule::new("B", Node::Alternation(vec![
+                Box::new(Node::Rulename("A".into())),
+                Box::new(Node::Rulename("B".into())),
+            ]))),
+            ("c = (A / B)\n", Rule::new("c", Node::Group(Box::new(Node::Alternation(vec![
+                Box::new(Node::Rulename("A".into())),
+                Box::new(Node::Rulename("B".into())),
+            ]))))),
+            ("D = <this is prose>\n", Rule::new("D", Node::ProseVal("this is prose".into()))),
+            ("xXx = ((A B))\n", Rule::new("xXx", Node::Group(
+                Box::new(Node::Group(
+                    Box::new(
+                        Node::Concatenation(vec![
+                            Box::new(Node::Rulename("A".into())),
+                            Box::new(Node::Rulename("B".into())),
+                        ])
+                    )
+                ))
+            ))),
+            ("a = 0*15\"-\"\n", Rule::new("a", Node::Repetition {
+                repeat: Some(Repeat {
+                    min: Some(0),
+                    max: Some(15),
+                }),
+                node: Box::new(Node::CharVal("-".into()))
+            })),
+            ("a = *\"-\"\n", Rule::new("a", Node::Repetition {
+                repeat: Some(Repeat {
+                    min: None,
+                    max: None,
+                }),
+                node: Box::new(Node::CharVal("-".into()))
+            })),
+        ];
+
+        for (test, expected) in tests {
+            let (remaining, got) = rule(test.as_bytes()).unwrap();
+            assert!(remaining.is_empty());
+            assert_eq!(got, expected);
+        }
     }
 
     #[test]

@@ -36,7 +36,7 @@ fn main() -> std::io::Result<()> {
     let (remaining, rules) = rulelist(&data).unwrap();
 
     for rule in &rules {
-        println!("[!] {:?}\n", rule);
+        println!("[!] {:#?}\n", rule);
     }
 
     println!("---------------\n{}", String::from_utf8_lossy(remaining));

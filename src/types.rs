@@ -1,4 +1,4 @@
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Rule {
     pub name: String,
     pub node: Box<Node>,
@@ -10,7 +10,7 @@ impl Rule {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Node {
     Alternation(Vec<Box<Node>>),
     Concatenation(Vec<Box<Node>>),
@@ -26,7 +26,7 @@ pub enum Node {
     ProseVal(String),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Repeat {
     pub min: Option<usize>,
     pub max: Option<usize>,
