@@ -6,249 +6,207 @@
 //! See https://tools.ietf.org/html/rfc5234#appendix-B.1
 //!
 
-//
-// TODO: can we replace nom's
-//   named_attr!(#[doc = ""], ...
-// with something less distracting? We should document public functions,
-// but currently nom's syntax is really hard to read in the source code.
-//
+use nom::branch::alt;
+use nom::bytes::complete::tag;
+use nom::character::complete::char;
+use nom::combinator::map;
+use nom::multi::many0;
+use nom::sequence::tuple;
+use nom::{Err, IResult};
 
-use nom::{Context, Err, ErrorKind, IResult, Needed};
-
-/// ```text
-/// ALPHA = %x41-5A / %x61-7A
-///          ; A-Z / a-z
-/// ```
-pub fn ALPHA(i:&[u8]) -> IResult<&[u8], char> {
+/// ALPHA = %x41-5A / %x61-7A ; A-Z / a-z
+pub fn ALPHA(i: &[u8]) -> IResult<&[u8], char> {
     if i.len() < 1 {
-        Err(Err::Incomplete(Needed::Size(1)))
+        Err(Err::Error((i, nom::error::ErrorKind::Char)))
     } else {
-        match i[0] as char {
-            'a' ..= 'z' | 'A' ..= 'Z' => {
-                Ok((&i[1..], i[0] as char))
-            }
-            _ => {
-                let e:ErrorKind<u32> = ErrorKind::Tag;
-                Err(Err::Error(Context::Code(i, e)))
-            }
+        if is_ALPHA(i[0]) {
+            Ok((&i[1..], i[0] as char))
+        } else {
+            Err(Err::Error((i, nom::error::ErrorKind::Char)))
         }
     }
 }
 
-named_attr!(#[doc = r#"
-```text
-BIT = "0" / "1"
-```
-"#], pub BIT<char>, do_parse!(
-    bit: one_of!("01") >> (bit)
-));
+pub fn is_ALPHA(i: u8) -> bool {
+    match i as char {
+        'a'..='z' | 'A'..='Z' => true,
+        _ => false,
+    }
+}
 
-/// ```text
-/// CHAR = %x01-7F
-///         ; any 7-bit US-ASCII character, excluding NUL
-/// ```
-pub fn CHAR(i:&[u8]) -> IResult<&[u8], &[u8]>{
+/// BIT = "0" / "1"
+pub fn BIT(input: &[u8]) -> IResult<&[u8], char> {
+    nom::character::complete::one_of("01")(input)
+}
+
+/// CHAR = %x01-7F ; any 7-bit US-ASCII character, excluding NUL
+pub fn CHAR(i: &[u8]) -> IResult<&[u8], &[u8]> {
     if i.len() < 1 {
-        Err(Err::Incomplete(Needed::Size(1)))
+        Err(Err::Error((i, nom::error::ErrorKind::Char)))
     } else {
-        match i[0] {
-            0x01 ..= 0x7F => {
-                Ok((&i[1..], &i[0..1]))
-            }
-            _ => {
-                let e:ErrorKind<u32> = ErrorKind::Tag;
-                Err(Err::Error(Context::Code(i, e)))
-            }
+        if is_CHAR(i[0]) {
+            Ok((&i[1..], &i[0..1]))
+        } else {
+            Err(Err::Error((i, nom::error::ErrorKind::Char)))
         }
     }
 }
 
-named_attr!(#[doc = r#"
-```text
-CR = %x0D ; carriage return
-```
-"#], pub CR<char>,
-    char!('\r')
-);
+pub fn is_CHAR(i: u8) -> bool {
+    match i {
+        0x01..=0x7F => true,
+        _ => false,
+    }
+}
 
-named_attr!(#[doc = r#"
-```text
-CRLF = CR LF ; Internet standard newline
-```
-"#], pub CRLF<&[u8]>,
-    alt!(tag!("\r\n") | tag!("\n")) // TODO: Fixme?
-);
+/// CR = %x0D ; carriage return
+pub fn CR(input: &[u8]) -> IResult<&[u8], char> {
+    char('\r')(input)
+}
 
-/// ```text
+/// CRLF = CR LF ; Internet standard newline
+pub fn CRLF(input: &[u8]) -> IResult<&[u8], &[u8]> {
+    alt((tag("\r\n"), tag("\n")))(input) // FIXME: ?
+}
+
 /// CTL = %x00-1F / %x7F ; controls
-/// ```
-pub fn CTL(i:&[u8]) -> IResult<&[u8], &[u8]>{
+pub fn CTL(i: &[u8]) -> IResult<&[u8], &[u8]> {
     if i.len() < 1 {
-        Err(Err::Incomplete(Needed::Size(1)))
+        Err(Err::Error((i, nom::error::ErrorKind::Char)))
     } else {
-        match i[0] {
-            0x00 ..= 0x1F | 0x7F => {
-                Ok((&i[1..], &i[0..1]))
-            }
-            _ => {
-                let e:ErrorKind<u32> = ErrorKind::Tag;
-                Err(Err::Error(Context::Code(i, e)))
-            }
+        if is_CTL(i[0]) {
+            Ok((&i[1..], &i[0..1]))
+        } else {
+            Err(Err::Error((i, nom::error::ErrorKind::Char)))
         }
     }
 }
 
-/// ```text
+pub fn is_CTL(i: u8) -> bool {
+    match i {
+        0x00..=0x1F | 0x7F => true,
+        _ => false,
+    }
+}
+
 /// DIGIT = %x30-39 ; 0-9
-/// ```
-pub fn DIGIT(i:&[u8]) -> IResult<&[u8], char> {
-    if i.len() < 1 {
-        Err(Err::Incomplete(Needed::Size(1)))
-    } else {
-        match i[0] as char {
-            '0' ..= '9' => {
-                Ok((&i[1..], i[0] as char))
-            }
-            _ => {
-                let e:ErrorKind<u32> = ErrorKind::Tag;
-                Err(Err::Error(Context::Code(i, e)))
-            }
-        }
+pub fn DIGIT(input: &[u8]) -> IResult<&[u8], char> {
+    nom::character::complete::one_of("0123456789")(input)
+}
+
+pub fn is_DIGIT(i: u8) -> bool {
+    match i as char {
+        '0'..='9' => true,
+        _ => false,
     }
 }
 
-named_attr!(#[doc = r#"
-```text
-DQUOTE = %x22 ; " (Double Quote)
-```
-"#], pub DQUOTE<char>,
-    char!('"')
-);
+/// DQUOTE = %x22 ; " (Double Quote)
+pub fn DQUOTE(input: &[u8]) -> IResult<&[u8], char> {
+    char('"')(input)
+}
 
-/// ```text
 /// HEXDIG = DIGIT / "A" / "B" / "C" / "D" / "E" / "F"
-/// ```
-pub fn HEXDIG(i:&[u8]) -> IResult<&[u8], char> {
-    if i.len() < 1 {
-        Err(Err::Incomplete(Needed::Size(1)))
-    } else {
-        match i[0] as char {
-            '0' ..= '9' | 'a' ..= 'f' | 'A' ..= 'F' => {
-                Ok((&i[1..], i[0] as char))
-            }
-            _ => {
-                let e:ErrorKind<u32> = ErrorKind::Tag;
-                Err(Err::Error(Context::Code(i, e)))
-            }
-        }
+pub fn HEXDIG(input: &[u8]) -> IResult<&[u8], char> {
+    nom::character::complete::one_of("0123456789abcdefABCDEF")(input)
+}
+
+pub fn is_HEXDIG(i: u8) -> bool {
+    match i as char {
+        '0'..='9' | 'a'..='f' | 'A'..='F' => true,
+        _ => false,
     }
 }
 
-named_attr!(#[doc = r#"
-```text
-HTAB = %x09 ; horizontal tab
-```
-"#], pub HTAB<char>,
-    char!('\x09')
-);
+/// HTAB = %x09 ; horizontal tab
+pub fn HTAB(input: &[u8]) -> IResult<&[u8], char> {
+    char('\t')(input)
+}
 
-named_attr!(#[doc = r#"
-```text
-LF = %x0A ; linefeed
-```
-"#], pub LF<char>,
-    char!('\n')
-);
+/// LF = %x0A ; linefeed
+pub fn LF(input: &[u8]) -> IResult<&[u8], char> {
+    char('\n')(input)
+}
 
-named_attr!(#[doc = r#"
-```text
-LWSP = *(WSP / CRLF WSP)
-        ; Use of this linear-white-space rule
-        ;  permits lines containing only white
-        ;  space that are no longer legal in
-        ;  mail headers and have caused
-        ;  interoperability problems in other
-        ;  contexts.
-        ; Do not use when defining mail
-        ;  headers and use with caution in
-        ;  other contexts.
-```
-"#], pub LWSP<Vec<Vec<u8>>>, do_parse!(
-    lwsp: many0!(alt!(
-        map!(WSP, |c| vec![c as u8]) |
-        map!(tuple!(CRLF, WSP), |(crlf, wsp)| {
+/// LWSP = *(WSP / CRLF WSP)
+///         ; Use of this linear-white-space rule
+///         ;  permits lines containing only white
+///         ;  space that are no longer legal in
+///         ;  mail headers and have caused
+///         ;  interoperability problems in other
+///         ;  contexts.
+///         ; Do not use when defining mail
+///         ;  headers and use with caution in
+///         ;  other contexts.
+pub fn LWSP(input: &[u8]) -> IResult<&[u8], Vec<Vec<u8>>> {
+    let parser = many0(alt((
+        map(WSP, |c| vec![c as u8]),
+        map(tuple((CRLF, WSP)), |(crlf, wsp)| {
             let mut tmp = Vec::new();
             tmp.extend(crlf);
             tmp.push(wsp as u8);
             tmp
-        })
-    )) >> (lwsp)
-));
+        }),
+    )));
 
-/// ```text
+    parser(input)
+}
+
 /// OCTET = %x00-FF ; 8 bits of data
-/// ```
-pub fn OCTET(i:&[u8]) -> IResult<&[u8], &[u8]>{
+pub fn OCTET(i: &[u8]) -> IResult<&[u8], &[u8]> {
     if i.len() < 1 {
-        Err(Err::Incomplete(Needed::Size(1)))
+        Err(Err::Error((i, nom::error::ErrorKind::Char)))
     } else {
         Ok((&i[1..], &i[0..1]))
     }
 }
 
-named_attr!(#[doc = r#"
-```text
-SP = %x20
-```
-"#], pub SP<char>,
-    char!(' ')
-);
+/// SP = %x20
+pub fn SP(input: &[u8]) -> IResult<&[u8], char> {
+    char(' ')(input)
+}
 
-/// ```text
 /// VCHAR = %x21-7E ; visible (printing) characters
-/// ```
-pub fn VCHAR(i:&[u8]) -> IResult<&[u8], char>{
+pub fn VCHAR(i: &[u8]) -> IResult<&[u8], char> {
     if i.len() < 1 {
-        Err(Err::Incomplete(Needed::Size(1)))
+        Err(Err::Error((i, nom::error::ErrorKind::Char)))
     } else {
-        match i[0] {
-            0x21 ..= 0x7E => {
-                Ok((&i[1..], i[0] as char))
-            }
-            _ => {
-                let e:ErrorKind<u32> = ErrorKind::Tag;
-                Err(Err::Error(Context::Code(i, e)))
-            }
+        if is_VCHAR(i[0]) {
+            Ok((&i[1..], i[0] as char))
+        } else {
+            Err(Err::Error((i, nom::error::ErrorKind::Char)))
         }
     }
 }
 
-named_attr!(#[doc = r#"
-```text
-WSP = SP / HTAB ; white space
-```
-"#], pub WSP<char>, do_parse!(
-    wsp: alt!(SP | HTAB) >> (wsp)
-));
+pub fn is_VCHAR(i: u8) -> bool {
+    match i {
+        0x21..=0x7E => true,
+        _ => false,
+    }
+}
+
+/// WSP = SP / HTAB ; white space
+pub fn WSP(input: &[u8]) -> IResult<&[u8], char> {
+    alt((SP, HTAB))(input)
+}
+
+pub fn is_WSP(i: u8) -> bool {
+    match i {
+        0x20 | 0x09 => true,
+        _ => false,
+    }
+}
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
 
     #[test]
     fn test_BIT() {
-        assert_eq!(
-            BIT(b"100"),
-            Ok(
-                (&['0' as u8, '0' as u8][..], '1')
-            )
-        );
-        assert_eq!(
-            BIT(b"010"),
-            Ok(
-                (&['1' as u8, '0' as u8][..], '0')
-            )
-        );
+        assert_eq!(BIT(b"100"), Ok((&['0' as u8, '0' as u8][..], '1')));
+        assert_eq!(BIT(b"010"), Ok((&['1' as u8, '0' as u8][..], '0')));
         assert!(BIT(b"").is_err());
         assert!(BIT(b"/").is_err());
         assert!(BIT(b"2").is_err());
@@ -256,19 +214,9 @@ mod tests {
 
     #[test]
     fn test_HEXDIG() {
-        assert_eq!(
-            HEXDIG(b"FaA"),
-            Ok(
-                (&['a' as u8, 'A' as u8][..], 'F')
-            )
-        );
-        
-        assert_eq!(
-            HEXDIG(b"0aA"),
-            Ok(
-                (&['a' as u8, 'A' as u8][..], '0')
-            )
-        );
+        assert_eq!(HEXDIG(b"FaA"), Ok((&['a' as u8, 'A' as u8][..], 'F')));
+
+        assert_eq!(HEXDIG(b"0aA"), Ok((&['a' as u8, 'A' as u8][..], '0')));
 
         assert!(HEXDIG(b"").is_err());
         assert!(HEXDIG(b"/").is_err());
@@ -278,4 +226,5 @@ mod tests {
         assert!(HEXDIG(b"@").is_err());
         assert!(HEXDIG(b"G").is_err());
     }
+
 }

@@ -1,9 +1,7 @@
-extern crate abnf;
+use abnf::abnf::rulelist;
 
 use std::fs::File;
 use std::io::{self, Read};
-
-use abnf::abnf::rulelist_comp;
 
 fn read_to_vec(path: &str) -> io::Result<Vec<u8>> {
     let mut file = File::open(path)?;
@@ -35,13 +33,14 @@ fn main() -> std::io::Result<()> {
         data
     };
 
-    // Nom is a streaming parser. Thus, when handling finite input,
-    // use functions with _comp suffix to avoid `Err::Incomplete`.
-    let res = rulelist_comp(&data).unwrap().1;
+    let (remaining, rules) = rulelist(&data).unwrap();
 
-    for rule in &res {
-        println!("{}\n", rule);
+    for rule in &rules {
+        println!("[!] {}", rule);
+        println!("[!] {:#?}\n", rule);
     }
+
+    println!("---------------\n{}", String::from_utf8_lossy(remaining));
 
     Ok(())
 }

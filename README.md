@@ -1,21 +1,63 @@
 # ABNF
 A nom-based ABNF parser.
 
-# Status
-Not thoroughly tested, but works with arguably complex ABNFs.
+## Example
 
-# Branches
+Input
 
-There are some experimental branches. The `with_generic_node` branch uses an enum...
-
-```Rust
-enum Node {
-    Alternation(Vec<Node>>),
-    Concatenation(Vec<Node>>),
-    ...
-}
+```
+rulelist   =   1*( rule / (*WSP c-nl) )
+                ; this is
+                ; a rule
 ```
 
-...which may be more suitable when implementing transformations.
+Output
 
-The `master` branch is a direct transformation of RFC 5234 to code.
+```
+// std::fmt::Display
+rulelist = 1*(rule / (*WSP c-nl))
+
+// std::fmt::Debug
+Rule {
+    name: "rulelist",
+    node: Repetition {
+        repeat: Some(
+            Repeat {
+                min: Some(
+                    1
+                ),
+                max: None
+            }
+        ),
+        node: Group(
+            Alternation(
+                [
+                    Rulename(
+                        "rule"
+                    ),
+                    Group(
+                        Concatenation(
+                            [
+                                Repetition {
+                                    repeat: Some(
+                                        Repeat {
+                                            min: None,
+                                            max: None
+                                        }
+                                    ),
+                                    node: Rulename(
+                                        "WSP"
+                                    )
+                                },
+                                Rulename(
+                                    "c-nl"
+                                )
+                            ]
+                        )
+                    )
+                ]
+            )
+        )
+    }
+}
+```
