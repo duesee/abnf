@@ -45,7 +45,7 @@ pub fn rule(input: &[u8]) -> IResult<&[u8], Rule> {
 
     let (input, (name, _, elements, _)) = parser(input)?;
 
-    Ok((input, Rule { name, elements }))
+    Ok((input, Rule::new(&name, elements)))
 }
 
 /// rulename = ALPHA *(ALPHA / DIGIT / "-")
@@ -73,7 +73,7 @@ pub fn defined_as(input: &[u8]) -> IResult<&[u8], ()> {
 
 /// Errata ID: 2968
 /// elements = alternation *WSP
-pub fn elements(input: &[u8]) -> IResult<&[u8], Alternation> {
+pub fn elements(input: &[u8]) -> IResult<&[u8], Node> {
     let parser = tuple((alternation, many0(WSP)));
 
     let (input, (alternation, _)) = parser(input)?;
@@ -109,7 +109,7 @@ pub fn comment(input: &[u8]) -> IResult<&[u8], ()> {
 }
 
 /// alternation = concatenation *(*c-wsp "/" *c-wsp concatenation)
-pub fn alternation(input: &[u8]) -> IResult<&[u8], Alternation> {
+pub fn alternation(input: &[u8]) -> IResult<&[u8], Node> {
     let parser = tuple((
         concatenation,
         many0(tuple((
@@ -122,37 +122,40 @@ pub fn alternation(input: &[u8]) -> IResult<&[u8], Alternation> {
 
     let (input, (head, tail)) = parser(input)?;
 
-    let mut concatenations = vec![head];
+    let mut concatenations = vec![Box::new(head)];
 
     for (_, _, _, item) in tail {
-        concatenations.push(item)
+        concatenations.push(Box::new(item))
     }
 
-    Ok((input, Alternation { concatenations }))
+    Ok((input, Node::Alternation(concatenations)))
 }
 
 /// concatenation = repetition *(1*c-wsp repetition)
-pub fn concatenation(input: &[u8]) -> IResult<&[u8], Concatenation> {
+pub fn concatenation(input: &[u8]) -> IResult<&[u8], Node> {
     let parser = tuple((repetition, many0(tuple((many1(c_wsp), repetition)))));
 
     let (input, (head, tail)) = parser(input)?;
 
-    let mut repetitions = vec![head];
+    let mut repetitions = vec![Box::new(head)];
 
     for (_, item) in tail {
-        repetitions.push(item)
+        repetitions.push(Box::new(item))
     }
 
-    Ok((input, Concatenation { repetitions }))
+    Ok((input, Node::Concatenation(repetitions)))
 }
 
 /// repetition = [repeat] element
-pub fn repetition(input: &[u8]) -> IResult<&[u8], Repetition> {
+pub fn repetition(input: &[u8]) -> IResult<&[u8], Node> {
     let parser = tuple((opt(repeat), element));
 
-    let (input, (repeat, element)) = parser(input)?;
+    let (input, (repeat, node)) = parser(input)?;
 
-    Ok((input, Repetition { repeat, element }))
+    Ok((input, Node::Repetition {
+        repeat: repeat,
+        node: Box::new(node),
+    }))
 }
 
 /// repeat = 1*DIGIT / (*DIGIT "*" *DIGIT)
@@ -191,14 +194,14 @@ pub fn repeat(input: &[u8]) -> IResult<&[u8], Repeat> {
 }
 
 /// element = rulename / group / option / char-val / num-val / prose-val
-pub fn element(input: &[u8]) -> IResult<&[u8], Element> {
+pub fn element(input: &[u8]) -> IResult<&[u8], Node> {
     let parser = alt((
-        map(rulename, |e| Element::Rulename(e)),
-        map(group, |e| Element::Group(e)),
-        map(option, |e| Element::Option(e)),
-        map(char_val, |e| Element::CharVal(e)),
-        map(num_val, |e| Element::NumVal(e)),
-        map(prose_val, |e| Element::ProseVal(e)),
+        map(rulename, |e| Node::Rulename(e)),
+        map(group, |e| Node::Group(Box::new(e))),
+        map(option, |e| Node::Optional(Box::new(e))),
+        map(char_val, |e| Node::CharVal(e)),
+        map(num_val, |e| Node::NumVal(e)),
+        map(prose_val, |e| Node::ProseVal(e)),
     ));
 
     let (input, val) = parser(input)?;
@@ -207,7 +210,7 @@ pub fn element(input: &[u8]) -> IResult<&[u8], Element> {
 }
 
 /// group = "(" *c-wsp alternation *c-wsp ")"
-pub fn group(input: &[u8]) -> IResult<&[u8], Group> {
+pub fn group(input: &[u8]) -> IResult<&[u8], Node> {
     let parser = tuple((
         char('('),
         many0(c_wsp),
@@ -218,11 +221,11 @@ pub fn group(input: &[u8]) -> IResult<&[u8], Group> {
 
     let (input, (_, _, alternation, _, _)) = parser(input)?;
 
-    Ok((input, Group { alternation }))
+    Ok((input, Node::Group(Box::new(alternation))))
 }
 
 /// option = "[" *c-wsp alternation *c-wsp "]"
-pub fn option(input: &[u8]) -> IResult<&[u8], Optional> {
+pub fn option(input: &[u8]) -> IResult<&[u8], Node> {
     let parser = tuple((
         char('['),
         many0(c_wsp),
@@ -233,7 +236,7 @@ pub fn option(input: &[u8]) -> IResult<&[u8], Optional> {
 
     let (input, (_, _, alternation, _, _)) = parser(input)?;
 
-    Ok((input, Optional { alternation }))
+    Ok((input, Node::Optional(Box::new(alternation))))
 }
 
 /// char-val = DQUOTE *(%x20-21 / %x23-7E) DQUOTE
