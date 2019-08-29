@@ -24,16 +24,16 @@ Rule {
         repeat: Some(
             Repeat {
                 min: Some(
-                    1
+                    1,
                 ),
-                max: None
-            }
+                max: None,
+            },
         ),
         node: Group(
             Alternation(
                 [
                     Rulename(
-                        "rule"
+                        "rule",
                     ),
                     Group(
                         Concatenation(
@@ -42,22 +42,23 @@ Rule {
                                     repeat: Some(
                                         Repeat {
                                             min: None,
-                                            max: None
-                                        }
+                                            max: None,
+                                        },
                                     ),
                                     node: Rulename(
-                                        "WSP"
-                                    )
+                                        "WSP",
+                                    ),
                                 },
                                 Rulename(
-                                    "c-nl"
-                                )
-                            ]
-                        )
-                    )
-                ]
-            )
-        )
-    }
+                                    "c-nl",
+                                ),
+                            ],
+                        ),
+                    ),
+                ],
+            ),
+        ),
+    },
+    definition: Basic,
 }
 ```

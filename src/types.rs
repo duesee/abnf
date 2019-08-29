@@ -62,7 +62,12 @@ pub enum Range {
 
 impl fmt::Display for Rule {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} = {}", self.name, self.node)
+        write!(f, "{}", self.name)?;
+        match self.definition {
+            Definition::Basic => write!(f, " = ")?,
+            Definition::Incremental => write!(f, " =/ ")?,
+        }
+        write!(f, "{}", self.node)
     }
 }
 
@@ -134,5 +139,23 @@ impl fmt::Display for Node {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_display_rule() {
+        let test = Rule::new("rule", Node::Rulename("A".into()));
+        let expected = "rule = A";
+        let got = test.to_string();
+        assert_eq!(expected, got);
+
+        let test = Rule::new("rule", Node::Rulename("A".into())).definition(Definition::Incremental);
+        let expected = "rule =/ A";
+        let got = test.to_string();
+        assert_eq!(expected, got);
     }
 }
