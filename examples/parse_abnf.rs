@@ -19,7 +19,7 @@ fn main() -> std::io::Result<()> {
 
     if paths.len() == 0 {
         println!("No files specified. Exit.");
-        std::process::exit(0);
+        std::process::exit(1);
     }
 
     let data = {
