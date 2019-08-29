@@ -122,15 +122,15 @@ pub fn alternation(input: &[u8]) -> IResult<&[u8], Node> {
 
     let (input, (head, tail)) = parser(input)?;
 
-    let mut concatenations = vec![Box::new(head)];
+    let mut concatenations = vec![head];
 
     for (_, _, _, item) in tail {
-        concatenations.push(Box::new(item))
+        concatenations.push(item)
     }
 
     // if alternation has only one child, do not wrap it in a `Node::Alternation`.
     if concatenations.len() == 1 {
-        Ok((input, *concatenations.pop().unwrap()))
+        Ok((input, concatenations.pop().unwrap()))
     } else {
         Ok((input, Node::Alternation(concatenations)))
     }
@@ -142,15 +142,15 @@ pub fn concatenation(input: &[u8]) -> IResult<&[u8], Node> {
 
     let (input, (head, tail)) = parser(input)?;
 
-    let mut repetitions = vec![Box::new(head)];
+    let mut repetitions = vec![head];
 
     for (_, item) in tail {
-        repetitions.push(Box::new(item))
+        repetitions.push(item)
     }
 
     // if concatenation has only one child, do not wrap it in a `Node::Concatenation`.
     if repetitions.len() == 1 {
-        Ok((input, *repetitions.pop().unwrap()))
+        Ok((input, repetitions.pop().unwrap()))
     } else {
         Ok((input, Node::Concatenation(repetitions)))
     }
@@ -406,8 +406,8 @@ mod tests {
                 Rule::new(
                     "B",
                     Node::Alternation(vec![
-                        Box::new(Node::Rulename("A".into())),
-                        Box::new(Node::Rulename("B".into())),
+                        Node::Rulename("A".into()),
+                        Node::Rulename("B".into()),
                     ]),
                 ),
             ),
@@ -416,8 +416,8 @@ mod tests {
                 Rule::new(
                     "c",
                     Node::Group(Box::new(Node::Alternation(vec![
-                        Box::new(Node::Rulename("A".into())),
-                        Box::new(Node::Rulename("B".into())),
+                        Node::Rulename("A".into()),
+                        Node::Rulename("B".into()),
                     ]))),
                 ),
             ),
@@ -430,8 +430,8 @@ mod tests {
                 Rule::new(
                     "xXx",
                     Node::Group(Box::new(Node::Group(Box::new(Node::Concatenation(vec![
-                        Box::new(Node::Rulename("A".into())),
-                        Box::new(Node::Rulename("B".into())),
+                        Node::Rulename("A".into()),
+                        Node::Rulename("B".into()),
                     ]))))),
                 ),
             ),

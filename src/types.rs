@@ -3,22 +3,22 @@ use std::fmt;
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Rule {
     pub name: String,
-    pub node: Box<Node>,
+    pub node: Node,
 }
 
 impl Rule {
     pub fn new(name: &str, node: Node) -> Rule {
         Rule {
             name: name.into(),
-            node: Box::new(node),
+            node: node,
         }
     }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Node {
-    Alternation(Vec<Box<Node>>),
-    Concatenation(Vec<Box<Node>>),
+    Alternation(Vec<Node>),
+    Concatenation(Vec<Node>),
     Repetition {
         repeat: Option<Repeat>,
         node: Box<Node>,
