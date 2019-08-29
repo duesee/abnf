@@ -43,9 +43,9 @@ pub fn rulelist(input: &[u8]) -> IResult<&[u8], Vec<Rule>> {
 pub fn rule(input: &[u8]) -> IResult<&[u8], Rule> {
     let parser = tuple((rulename, defined_as, elements, c_nl));
 
-    let (input, (name, _, elements, _)) = parser(input)?;
+    let (input, (name, definition, elements, _)) = parser(input)?;
 
-    Ok((input, Rule::new(&name, elements)))
+    Ok((input, Rule::new(&name, elements).definition(definition)))
 }
 
 /// rulename = ALPHA *(ALPHA / DIGIT / "-")
@@ -63,12 +63,19 @@ pub fn rulename(input: &[u8]) -> IResult<&[u8], String> {
 /// defined-as = *c-wsp ("=" / "=/") *c-wsp
 ///               ; basic rules definition and
 ///               ;  incremental alternatives
-pub fn defined_as(input: &[u8]) -> IResult<&[u8], ()> {
-    let parser = tuple((many0(c_wsp), alt((tag("=/"), tag("="))), many0(c_wsp)));
+pub fn defined_as(input: &[u8]) -> IResult<&[u8], Definition> {
+    let parser = tuple((
+        many0(c_wsp),
+        alt((
+            map(tag("=/"), |_| Definition::Incremental),
+            map(tag("="), |_| Definition::Basic),
+        )),
+        many0(c_wsp),
+    ));
 
-    let (input, _) = parser(input)?;
+    let (input, (_, definition, _)) = parser(input)?;
 
-    Ok((input, ()))
+    Ok((input, definition))
 }
 
 /// Errata ID: 2968
@@ -405,10 +412,7 @@ mod tests {
                 "B = A / B\n",
                 Rule::new(
                     "B",
-                    Node::Alternation(vec![
-                        Node::Rulename("A".into()),
-                        Node::Rulename("B".into()),
-                    ]),
+                    Node::Alternation(vec![Node::Rulename("A".into()), Node::Rulename("B".into())]),
                 ),
             ),
             (
@@ -540,5 +544,29 @@ mod tests {
     #[test]
     fn test_prose_val() {
         assert_eq!("Hello, World!", prose_val(b"<Hello, World!>").unwrap().1)
+    }
+
+    #[test]
+    fn test_definition() {
+        let tests = vec![
+            (
+                "a =/ A\n",
+                Rule::new("a", Node::Rulename("A".into())).definition(Definition::Incremental),
+            ),
+            (
+                "B =/ A / B\n",
+                Rule::new(
+                    "B",
+                    Node::Alternation(vec![Node::Rulename("A".into()), Node::Rulename("B".into())]),
+                )
+                .definition(Definition::Incremental),
+            ),
+        ];
+
+        for (test, expected) in tests {
+            let (remaining, got) = rule(test.as_bytes()).unwrap();
+            assert!(remaining.is_empty());
+            assert_eq!(got, expected);
+        }
     }
 }

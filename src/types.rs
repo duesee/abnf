@@ -1,9 +1,16 @@
 use std::fmt;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
+pub enum Definition {
+    Basic,
+    Incremental,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Rule {
     pub name: String,
     pub node: Node,
+    pub definition: Definition,
 }
 
 impl Rule {
@@ -11,7 +18,13 @@ impl Rule {
         Rule {
             name: name.into(),
             node: node,
+            definition: Definition::Basic,
         }
+    }
+
+    pub fn definition(mut self, definition: Definition) -> Self {
+        self.definition = definition;
+        self
     }
 }
 
