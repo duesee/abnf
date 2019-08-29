@@ -1,8 +1,12 @@
 use std::fmt;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
+/// Is a rule a basic rule or an incremental alternative?
+/// See https://tools.ietf.org/html/rfc5234#section-3.3
 pub enum Definition {
+    /// Basic Rule Definition
     Basic,
+    /// Incremental Alternative
     Incremental,
 }
 

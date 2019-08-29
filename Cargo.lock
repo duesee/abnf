@@ -2,7 +2,7 @@
 # It is not intended for manual editing.
 [[package]]
 name = "abnf"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "nom 5.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
