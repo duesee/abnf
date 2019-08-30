@@ -20,45 +20,45 @@ rulelist = 1*(rule / (*WSP c-nl))
 // std::fmt::Debug
 Rule {
     name: "rulelist",
-    node: Repetition {
-        repeat: Some(
-            Repeat {
+    node: Repetition(
+        Repetition {
+            repeat: Repeat {
                 min: Some(
                     1,
                 ),
                 max: None,
             },
-        ),
-        node: Group(
-            Alternation(
-                [
-                    Rulename(
-                        "rule",
-                    ),
-                    Group(
-                        Concatenation(
-                            [
-                                Repetition {
-                                    repeat: Some(
-                                        Repeat {
-                                            min: None,
-                                            max: None,
+            node: Group(
+                Alternation(
+                    [
+                        Rulename(
+                            "rule",
+                        ),
+                        Group(
+                            Concatenation(
+                                [
+                                    Repetition(
+                                        Repetition {
+                                            repeat: Repeat {
+                                                min: None,
+                                                max: None,
+                                            },
+                                            node: Rulename(
+                                                "WSP",
+                                            ),
                                         },
                                     ),
-                                    node: Rulename(
-                                        "WSP",
+                                    Rulename(
+                                        "c-nl",
                                     ),
-                                },
-                                Rulename(
-                                    "c-nl",
-                                ),
-                            ],
+                                ],
+                            ),
                         ),
-                    ),
-                ],
+                    ],
+                ),
             ),
-        ),
-    },
+        },
+    ),
     definition: Basic,
 }
 ```
