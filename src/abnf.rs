@@ -194,12 +194,12 @@ pub fn repeat(input: &[u8]) -> IResult<&[u8], Repeat> {
                     None
                 };
 
-                Repeat::default().min(min).max(max)
+                Repeat::with(min, max)
             },
         ),
         map(many1(DIGIT), |min| {
             let min = usize::from_str_radix(&min.into_iter().collect::<String>(), 10).unwrap();
-            Repeat::default().min(Some(min)).max(Some(min))
+            Repeat::with(Some(min), Some(min))
         }),
     ));
 
@@ -452,9 +452,7 @@ mod tests {
 
     impl Arbitrary for Repeat {
         fn arbitrary<G: Gen>(g: &mut G) -> Self {
-            Repeat::default()
-                .min(Option::<usize>::arbitrary(g))
-                .max(Option::<usize>::arbitrary(g))
+            Repeat::with(Option::<usize>::arbitrary(g), Option::<usize>::arbitrary(g))
         }
     }
 
@@ -511,7 +509,7 @@ mod tests {
                 Rule::new(
                     "a",
                     Node::Repetition(Repetition::new(
-                        Repeat::default().min(Some(0)).max(Some(15)),
+                        Repeat::with(Some(0), Some(15)),
                         Node::CharVal("-".into()),
                     )),
                 ),
@@ -520,10 +518,7 @@ mod tests {
                 "a = *\"-\"\n",
                 Rule::new(
                     "a",
-                    Node::Repetition(Repetition::new(
-                        Repeat::default(),
-                        Node::CharVal("-".into()),
-                    )),
+                    Node::Repetition(Repetition::new(Repeat::new(), Node::CharVal("-".into()))),
                 ),
             ),
         ];
@@ -658,9 +653,9 @@ mod tests {
         let rule = Rule::new(
             "rule",
             Node::Repetition(Repetition::new(
-                Repeat::default().min(Some(1)).max(Some(12)),
+                Repeat::with(Some(1), Some(12)),
                 Node::Repetition(Repetition::new(
-                    Repeat::default().min(Some(1)).max(Some(2)),
+                    Repeat::with(Some(1), Some(2)),
                     Node::ProseVal("test".into()),
                 )),
             )),

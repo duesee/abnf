@@ -66,28 +66,16 @@ pub struct Repeat {
     max: Option<usize>,
 }
 
-impl Default for Repeat {
-    fn default() -> Self {
+impl Repeat {
+    pub fn new() -> Self {
         Self {
             min: None,
             max: None,
         }
     }
-}
 
-impl Repeat {
-    pub fn new(min: Option<usize>, max: Option<usize>) -> Self {
+    pub fn with(min: Option<usize>, max: Option<usize>) -> Self {
         Self { min, max }
-    }
-
-    pub fn min(mut self, min: Option<usize>) -> Self {
-        self.min = min;
-        self
-    }
-
-    pub fn max(mut self, max: Option<usize>) -> Self {
-        self.max = max;
-        self
     }
 }
 
