@@ -77,8 +77,8 @@ pub fn defined_as(input: &[u8]) -> IResult<&[u8], Definition> {
     Ok((input, definition))
 }
 
-/// Errata ID: 2968
 /// elements = alternation *WSP
+/// Errata ID: 2968
 pub fn elements(input: &[u8]) -> IResult<&[u8], Node> {
     let parser = tuple((alternation, many0(WSP)));
 
@@ -170,10 +170,7 @@ pub fn repetition(input: &[u8]) -> IResult<&[u8], Node> {
 
     // if there is no repeat, do not wrap it in a `Node::Repetition`.
     if let Some(repeat) = repeat {
-        Ok((
-            input,
-            Node::Repetition(Repetition::new(repeat, node)),
-        ))
+        Ok((input, Node::Repetition(Repetition::new(repeat, node))))
     } else {
         Ok((input, node))
     }
@@ -399,13 +396,15 @@ mod tests {
     //use crate::types::*;
     use quickcheck::{Arbitrary, Gen};
     use quickcheck_macros::quickcheck;
-    use rand::{Rng, distributions::Distribution, seq::SliceRandom};
+    use rand::{distributions::Distribution, seq::SliceRandom, Rng};
 
     struct RulenameDistribution;
 
     impl Distribution<char> for RulenameDistribution {
         fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> char {
-            *b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-".choose(rng).unwrap() as char
+            *b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-"
+                .choose(rng)
+                .unwrap() as char
         }
     }
 
@@ -453,14 +452,22 @@ mod tests {
 
     impl Arbitrary for Repeat {
         fn arbitrary<G: Gen>(g: &mut G) -> Self {
-            Repeat::default().min(Option::<usize>::arbitrary(g)).max(Option::<usize>::arbitrary(g))
+            Repeat::default()
+                .min(Option::<usize>::arbitrary(g))
+                .max(Option::<usize>::arbitrary(g))
         }
     }
 
     impl Arbitrary for Range {
         fn arbitrary<G: Gen>(g: &mut G) -> Self {
             use super::Range::*;
-            [OneOf(Vec::<u32>::arbitrary(g)), Range(u32::arbitrary(g), u32::arbitrary(g))].choose(g).unwrap().clone()
+            [
+                OneOf(Vec::<u32>::arbitrary(g)),
+                Range(u32::arbitrary(g), u32::arbitrary(g)),
+            ]
+            .choose(g)
+            .unwrap()
+            .clone()
         }
     }
 
@@ -503,24 +510,20 @@ mod tests {
                 "a = 0*15\"-\"\n",
                 Rule::new(
                     "a",
-                    Node::Repetition(
-                        Repetition::new(
-                            Repeat::default().min(Some(0)).max(Some(15)),
-                            Node::CharVal("-".into())
-                        ),
-                    ),
+                    Node::Repetition(Repetition::new(
+                        Repeat::default().min(Some(0)).max(Some(15)),
+                        Node::CharVal("-".into()),
+                    )),
                 ),
             ),
             (
                 "a = *\"-\"\n",
                 Rule::new(
                     "a",
-                    Node::Repetition(
-                        Repetition::new(
-                            Repeat::default(),
-                            Node::CharVal("-".into())
-                        ),
-                    )
+                    Node::Repetition(Repetition::new(
+                        Repeat::default(),
+                        Node::CharVal("-".into()),
+                    )),
                 ),
             ),
         ];
@@ -652,17 +655,16 @@ mod tests {
     #[test]
     fn test_repetition_repetition() {
         // FIXME: This test can not fail currently.
-        let rule = Rule::new("rule", Node::Repetition(
-            Repetition::new(
+        let rule = Rule::new(
+            "rule",
+            Node::Repetition(Repetition::new(
                 Repeat::default().min(Some(1)).max(Some(12)),
-                Node::Repetition(
-                    Repetition::new(
-                        Repeat::default().min(Some(1)).max(Some(2)),
-                        Node::ProseVal("test".into())
-                    )
-                )
-            )
-        ));
+                Node::Repetition(Repetition::new(
+                    Repeat::default().min(Some(1)).max(Some(2)),
+                    Node::ProseVal("test".into()),
+                )),
+            )),
+        );
         println!("{}", rule);
     }
 }

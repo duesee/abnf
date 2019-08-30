@@ -54,7 +54,8 @@ pub struct Repetition {
 impl Repetition {
     pub fn new(repeat: Repeat, node: Node) -> Self {
         Self {
-            repeat, node: Box::new(node)
+            repeat,
+            node: Box::new(node),
         }
     }
 }
@@ -76,9 +77,7 @@ impl Default for Repeat {
 
 impl Repeat {
     pub fn new(min: Option<usize>, max: Option<usize>) -> Self {
-        Self {
-            min, max,
-        }
+        Self { min, max }
     }
 
     pub fn min(mut self, min: Option<usize>) -> Self {
