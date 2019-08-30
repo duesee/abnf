@@ -1,5 +1,5 @@
-//! ```rust
-//! use abnf::abnf::rulelist;
+//! ```
+//! use abnf::rulelist;
 //!
 //! let (remaining, rules) = rulelist(b"rule = A / B / C\n").unwrap();
 //!
@@ -10,6 +10,9 @@
 //! println!("---------------\n{}", String::from_utf8_lossy(remaining));
 //! ```
 
-pub mod abnf;
+mod abnf;
 pub mod core;
-pub mod types;
+mod types;
+
+pub use crate::abnf::*;
+pub use crate::types::*;

@@ -1,4 +1,4 @@
-use abnf::abnf::rulelist;
+use abnf::rulelist;
 
 use std::fs::File;
 use std::io::{self, Read};

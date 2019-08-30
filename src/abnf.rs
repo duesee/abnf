@@ -6,8 +6,7 @@
 //! See https://tools.ietf.org/html/rfc5234#section-4
 //!
 
-use super::core::*;
-use super::types::*;
+use crate::{core::*, types::*};
 
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_while};
@@ -17,11 +16,11 @@ use nom::multi::{many0, many1};
 use nom::sequence::tuple;
 use nom::IResult;
 
-/// Errata ID: 3076
 /// rulelist = 1*( rule / (*WSP c-nl) )
+/// Errata ID: 3076
 pub fn rulelist(input: &[u8]) -> IResult<&[u8], Vec<Rule>> {
     let parser = many1(alt((
-        map(rule, |rule| Some(rule)),
+        map(rule, Some),
         map(tuple((many0(WSP), c_nl)), |_| None),
     )));
 
@@ -50,7 +49,7 @@ pub fn rule(input: &[u8]) -> IResult<&[u8], Rule> {
 
 /// rulename = ALPHA *(ALPHA / DIGIT / "-")
 pub fn rulename(input: &[u8]) -> IResult<&[u8], String> {
-    let valid = |x| is_ALPHA(x) || is_DIGIT(x) || x == '-' as u8;
+    let valid = |x| is_ALPHA(x) || is_DIGIT(x) || x == b'-';
 
     let (input, (head, tail)) = tuple((ALPHA, take_while(valid)))(input)?;
 
@@ -174,7 +173,7 @@ pub fn repetition(input: &[u8]) -> IResult<&[u8], Node> {
         Ok((
             input,
             Node::Repetition {
-                repeat: repeat,
+                repeat,
                 node: Box::new(node),
             },
         ))
@@ -189,13 +188,13 @@ pub fn repeat(input: &[u8]) -> IResult<&[u8], Repeat> {
         map(
             tuple((many0(DIGIT), char('*'), many0(DIGIT))),
             |(min, _, max)| {
-                let min = if min.len() > 0 {
+                let min = if !min.is_empty() {
                     Some(usize::from_str_radix(&min.into_iter().collect::<String>(), 10).unwrap())
                 } else {
                     None
                 };
 
-                let max = if max.len() > 0 {
+                let max = if !max.is_empty() {
                     Some(usize::from_str_radix(&max.into_iter().collect::<String>(), 10).unwrap())
                 } else {
                     None
@@ -221,12 +220,12 @@ pub fn repeat(input: &[u8]) -> IResult<&[u8], Repeat> {
 /// element = rulename / group / option / char-val / num-val / prose-val
 pub fn element(input: &[u8]) -> IResult<&[u8], Node> {
     let parser = alt((
-        map(rulename, |e| Node::Rulename(e)),
+        map(rulename, Node::Rulename),
         map(group, |e| e),
         map(option, |e| e),
-        map(char_val, |e| Node::CharVal(e)),
-        map(num_val, |e| Node::NumVal(e)),
-        map(prose_val, |e| Node::ProseVal(e)),
+        map(char_val, Node::CharVal),
+        map(num_val, Node::NumVal),
+        map(prose_val, Node::ProseVal),
     ));
 
     let (input, val) = parser(input)?;
@@ -275,7 +274,7 @@ pub fn char_val(input: &[u8]) -> IResult<&[u8], String> {
 
     let (input, (_, val, _)) = tuple((DQUOTE, take_while(char_val_chars), DQUOTE))(input)?;
 
-    Ok((input, val.into_iter().map(|b| *b as char).collect()))
+    Ok((input, val.iter().map(|b| *b as char).collect()))
 }
 
 /// num-val = "%" (bin-val / dec-val / hex-val)
@@ -397,12 +396,90 @@ pub fn prose_val(input: &[u8]) -> IResult<&[u8], String> {
 
     let (input, (_, val, _)) = tuple((char('<'), take_while(prose_val_chars), char('>')))(input)?;
 
-    Ok((input, val.into_iter().map(|b| *b as char).collect()))
+    Ok((input, val.iter().map(|b| *b as char).collect()))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use quickcheck::{Arbitrary, Gen};
+    use quickcheck_macros::quickcheck;
+    use rand::{Rng, distributions::Distribution, seq::SliceRandom};
+    use crate::Node::Repetition;
+
+    struct RulenameDistribution;
+
+    impl Distribution<char> for RulenameDistribution {
+        fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> char {
+            *b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-".choose(rng).unwrap() as char
+        }
+    }
+
+    impl Arbitrary for Rule {
+        fn arbitrary<G: Gen>(g: &mut G) -> Self {
+            let name: String = std::iter::repeat(())
+                .map(|()| g.sample(RulenameDistribution))
+                .take(7)
+                .collect();
+
+            Rule {
+                name: String::from("a") + &name,
+                node: Node::arbitrary(g),
+                definition: Definition::arbitrary(g),
+            }
+        }
+    }
+
+    impl Arbitrary for Node {
+        fn arbitrary<G: Gen>(g: &mut G) -> Self {
+            use Node::*;
+
+            let name: String = std::iter::repeat(())
+                .map(|()| g.sample(RulenameDistribution))
+                .take(7)
+                .collect();
+            let name = String::from("a") + &name;
+
+            match g.gen_range(0, 9) {
+                0 => Alternation(vec![Node::arbitrary(g), Node::arbitrary(g)]),
+                1 => Concatenation(vec![Node::arbitrary(g), Node::arbitrary(g)]),
+                2 => Repetition {
+                    repeat: Option::<Repeat>::arbitrary(g),
+                    node: Box::<Node>::arbitrary(g),
+                },
+                3 => Rulename(name), // TODO
+                4 => Group(Box::<Node>::arbitrary(g)),
+                5 => Optional(Box::<Node>::arbitrary(g)),
+                6 => CharVal(name), // TODO
+                7 => NumVal(Range::arbitrary(g)),
+                8 => ProseVal(name), // TODO
+                _ => unreachable!(),
+            }
+        }
+    }
+
+    impl Arbitrary for Definition {
+        fn arbitrary<G: Gen>(g: &mut G) -> Self {
+            use Definition::*;
+            [Basic, Incremental].choose(g).unwrap().clone()
+        }
+    }
+
+    impl Arbitrary for Repeat {
+        fn arbitrary<G: Gen>(g: &mut G) -> Self {
+            Repeat {
+                min: Option::<usize>::arbitrary(g),
+                max: Option::<usize>::arbitrary(g),
+            }
+        }
+    }
+
+    impl Arbitrary for Range {
+        fn arbitrary<G: Gen>(g: &mut G) -> Self {
+            use super::Range::*;
+            [OneOf(Vec::<u32>::arbitrary(g)), Range(u32::arbitrary(g), u32::arbitrary(g))].choose(g).unwrap().clone()
+        }
+    }
 
     #[test]
     fn test_rules() {
@@ -568,5 +645,39 @@ mod tests {
             assert!(remaining.is_empty());
             assert_eq!(got, expected);
         }
+    }
+
+    #[quickcheck]
+    fn test_explore_nesting(test: Rule) {
+        // FIXME: This test can not fail currently.
+        // Serialize an arbitrary rule to a string and check if it is parsed correctly.
+        // This is useful to see how much of the API can be exposed without getting weird errors.
+        //
+        // Should...
+        //     rule == deserialize(serialize(rule))
+        // also be true?
+        //
+        // Findings:
+        // * Repetition(Repetition(...)) is not parsable.
+        let printed = test.to_string() + "\n";
+
+        if let Err(_) = rule(printed.as_bytes()) {
+            println!("# Found interesting rule:");
+            println!("{}", test);
+            println!("{:#?}", test);
+        }
+    }
+
+    #[test]
+    fn test_repetition_repetition() {
+        // FIXME: This test can not fail currently.
+        let rule = Rule::new("rule", Node::Repetition {
+            repeat: Some(Repeat {min: Some(1), max: Some(2)}),
+            node: Box::new(Repetition {
+                repeat: Some(Repeat {min: Some(1), max: Some(2)}),
+                node: Box::new(Node::Rulename("test".into())),
+            })
+        });
+        println!("{}", rule);
     }
 }
