@@ -1,8 +1,8 @@
 use std::fmt;
 
-#[derive(Debug, Clone, Eq, PartialEq)]
 /// Is a rule a basic rule or an incremental alternative?
 /// See https://tools.ietf.org/html/rfc5234#section-3.3
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Definition {
     /// Basic Rule Definition
     Basic,
@@ -21,7 +21,7 @@ impl Rule {
     pub fn new(name: &str, node: Node) -> Rule {
         Rule {
             name: name.into(),
-            node: node,
+            node,
             definition: Definition::Basic,
         }
     }
@@ -153,9 +153,16 @@ mod test {
         let got = test.to_string();
         assert_eq!(expected, got);
 
-        let test = Rule::new("rule", Node::Rulename("A".into())).definition(Definition::Incremental);
+        let test =
+            Rule::new("rule", Node::Rulename("A".into())).definition(Definition::Incremental);
         let expected = "rule =/ A";
         let got = test.to_string();
         assert_eq!(expected, got);
+    }
+
+    #[test]
+    fn test_display_prose() {
+        let rule = Rule::new("rule", Node::ProseVal("test".into()));
+        assert_eq!("rule = <test>", rule.to_string());
     }
 }

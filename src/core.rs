@@ -16,14 +16,12 @@ use nom::{Err, IResult};
 
 /// ALPHA = %x41-5A / %x61-7A ; A-Z / a-z
 pub fn ALPHA(i: &[u8]) -> IResult<&[u8], char> {
-    if i.len() < 1 {
+    if i.is_empty() {
         Err(Err::Error((i, nom::error::ErrorKind::Char)))
+    } else if is_ALPHA(i[0]) {
+        Ok((&i[1..], i[0] as char))
     } else {
-        if is_ALPHA(i[0]) {
-            Ok((&i[1..], i[0] as char))
-        } else {
-            Err(Err::Error((i, nom::error::ErrorKind::Char)))
-        }
+        Err(Err::Error((i, nom::error::ErrorKind::Char)))
     }
 }
 
@@ -41,14 +39,12 @@ pub fn BIT(input: &[u8]) -> IResult<&[u8], char> {
 
 /// CHAR = %x01-7F ; any 7-bit US-ASCII character, excluding NUL
 pub fn CHAR(i: &[u8]) -> IResult<&[u8], &[u8]> {
-    if i.len() < 1 {
+    if i.is_empty() {
         Err(Err::Error((i, nom::error::ErrorKind::Char)))
+    } else if is_CHAR(i[0]) {
+        Ok((&i[1..], &i[0..1]))
     } else {
-        if is_CHAR(i[0]) {
-            Ok((&i[1..], &i[0..1]))
-        } else {
-            Err(Err::Error((i, nom::error::ErrorKind::Char)))
-        }
+        Err(Err::Error((i, nom::error::ErrorKind::Char)))
     }
 }
 
@@ -71,14 +67,12 @@ pub fn CRLF(input: &[u8]) -> IResult<&[u8], &[u8]> {
 
 /// CTL = %x00-1F / %x7F ; controls
 pub fn CTL(i: &[u8]) -> IResult<&[u8], &[u8]> {
-    if i.len() < 1 {
+    if i.is_empty() {
         Err(Err::Error((i, nom::error::ErrorKind::Char)))
+    } else if is_CTL(i[0]) {
+        Ok((&i[1..], &i[0..1]))
     } else {
-        if is_CTL(i[0]) {
-            Ok((&i[1..], &i[0..1]))
-        } else {
-            Err(Err::Error((i, nom::error::ErrorKind::Char)))
-        }
+        Err(Err::Error((i, nom::error::ErrorKind::Char)))
     }
 }
 
@@ -95,8 +89,8 @@ pub fn DIGIT(input: &[u8]) -> IResult<&[u8], char> {
 }
 
 pub fn is_DIGIT(i: u8) -> bool {
-    match i as char {
-        '0'..='9' => true,
+    match i {
+        b'0'..=b'9' => true,
         _ => false,
     }
 }
@@ -112,8 +106,8 @@ pub fn HEXDIG(input: &[u8]) -> IResult<&[u8], char> {
 }
 
 pub fn is_HEXDIG(i: u8) -> bool {
-    match i as char {
-        '0'..='9' | 'a'..='f' | 'A'..='F' => true,
+    match i {
+        b'0'..=b'9' | b'a'..=b'f' | b'A'..=b'F' => true,
         _ => false,
     }
 }
@@ -154,7 +148,7 @@ pub fn LWSP(input: &[u8]) -> IResult<&[u8], Vec<Vec<u8>>> {
 
 /// OCTET = %x00-FF ; 8 bits of data
 pub fn OCTET(i: &[u8]) -> IResult<&[u8], &[u8]> {
-    if i.len() < 1 {
+    if i.is_empty() {
         Err(Err::Error((i, nom::error::ErrorKind::Char)))
     } else {
         Ok((&i[1..], &i[0..1]))
@@ -168,14 +162,12 @@ pub fn SP(input: &[u8]) -> IResult<&[u8], char> {
 
 /// VCHAR = %x21-7E ; visible (printing) characters
 pub fn VCHAR(i: &[u8]) -> IResult<&[u8], char> {
-    if i.len() < 1 {
+    if i.is_empty() {
         Err(Err::Error((i, nom::error::ErrorKind::Char)))
+    } else if is_VCHAR(i[0]) {
+        Ok((&i[1..], i[0] as char))
     } else {
-        if is_VCHAR(i[0]) {
-            Ok((&i[1..], i[0] as char))
-        } else {
-            Err(Err::Error((i, nom::error::ErrorKind::Char)))
-        }
+        Err(Err::Error((i, nom::error::ErrorKind::Char)))
     }
 }
 
@@ -205,8 +197,8 @@ mod tests {
 
     #[test]
     fn test_BIT() {
-        assert_eq!(BIT(b"100"), Ok((&['0' as u8, '0' as u8][..], '1')));
-        assert_eq!(BIT(b"010"), Ok((&['1' as u8, '0' as u8][..], '0')));
+        assert_eq!(BIT(b"100"), Ok((&[b'0', b'0'][..], '1')));
+        assert_eq!(BIT(b"010"), Ok((&[b'1', b'0'][..], '0')));
         assert!(BIT(b"").is_err());
         assert!(BIT(b"/").is_err());
         assert!(BIT(b"2").is_err());
@@ -214,9 +206,9 @@ mod tests {
 
     #[test]
     fn test_HEXDIG() {
-        assert_eq!(HEXDIG(b"FaA"), Ok((&['a' as u8, 'A' as u8][..], 'F')));
+        assert_eq!(HEXDIG(b"FaA"), Ok((&[b'a', b'A'][..], 'F')));
 
-        assert_eq!(HEXDIG(b"0aA"), Ok((&['a' as u8, 'A' as u8][..], '0')));
+        assert_eq!(HEXDIG(b"0aA"), Ok((&[b'a', b'A'][..], '0')));
 
         assert!(HEXDIG(b"").is_err());
         assert!(HEXDIG(b"/").is_err());
