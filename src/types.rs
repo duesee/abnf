@@ -12,9 +12,9 @@ pub enum Definition {
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Rule {
-    pub name: String,
-    pub node: Node,
-    pub definition: Definition,
+    name: String,
+    node: Node,
+    definition: Definition,
 }
 
 impl Rule {
@@ -36,10 +36,7 @@ impl Rule {
 pub enum Node {
     Alternation(Vec<Node>),
     Concatenation(Vec<Node>),
-    Repetition {
-        repeat: Option<Repeat>,
-        node: Box<Node>,
-    },
+    Repetition(Repetition),
     Rulename(String),
     Group(Box<Node>),
     Optional(Box<Node>),
@@ -49,9 +46,50 @@ pub enum Node {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
+pub struct Repetition {
+    repeat: Repeat,
+    node: Box<Node>,
+}
+
+impl Repetition {
+    pub fn new(repeat: Repeat, node: Node) -> Self {
+        Self {
+            repeat, node: Box::new(node)
+        }
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Repeat {
-    pub min: Option<usize>,
-    pub max: Option<usize>,
+    min: Option<usize>,
+    max: Option<usize>,
+}
+
+impl Default for Repeat {
+    fn default() -> Self {
+        Self {
+            min: None,
+            max: None,
+        }
+    }
+}
+
+impl Repeat {
+    pub fn new(min: Option<usize>, max: Option<usize>) -> Self {
+        Self {
+            min, max,
+        }
+    }
+
+    pub fn min(mut self, min: Option<usize>) -> Self {
+        self.min = min;
+        self
+    }
+
+    pub fn max(mut self, max: Option<usize>) -> Self {
+        self.max = max;
+        self
+    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -90,17 +128,15 @@ impl fmt::Display for Node {
                     write!(f, "{}", last)?;
                 }
             }
-            Node::Repetition { repeat, node } => {
-                if let Some(ref repeat) = repeat {
-                    if let Some(min) = repeat.min {
-                        write!(f, "{}", min)?;
-                    }
+            Node::Repetition(Repetition { repeat, node }) => {
+                if let Some(min) = repeat.min {
+                    write!(f, "{}", min)?;
+                }
 
-                    write!(f, "*")?;
+                write!(f, "*")?;
 
-                    if let Some(max) = repeat.max {
-                        write!(f, "{}", max)?;
-                    }
+                if let Some(max) = repeat.max {
+                    write!(f, "{}", max)?;
                 }
 
                 write!(f, "{}", node)?;
@@ -164,5 +200,19 @@ mod test {
     fn test_display_prose() {
         let rule = Rule::new("rule", Node::ProseVal("test".into()));
         assert_eq!("rule = <test>", rule.to_string());
+    }
+
+    #[test]
+    fn test_impl_trait() {
+        // Make sure that others can implement their own traits for Rule.
+        trait Foo {
+            fn foo(&self);
+        }
+
+        impl Foo for Rule {
+            fn foo(&self) {
+                println!("{}", self.name);
+            }
+        }
     }
 }
