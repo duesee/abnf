@@ -60,7 +60,7 @@ impl Repetition {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Default)]
 pub struct Repeat {
     min: Option<usize>,
     max: Option<usize>,
