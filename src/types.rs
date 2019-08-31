@@ -2,7 +2,7 @@ use std::fmt;
 
 /// Is a rule a basic rule or an incremental alternative?
 /// See https://tools.ietf.org/html/rfc5234#section-3.3
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum Definition {
     /// Basic Rule Definition
     Basic,
@@ -29,6 +29,18 @@ impl Rule {
     pub fn definition(mut self, definition: Definition) -> Self {
         self.definition = definition;
         self
+    }
+
+    pub fn get_name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn get_node(&self) -> &Node {
+        &self.node
+    }
+
+    pub fn get_definition(&self) -> Definition {
+        self.definition
     }
 }
 
@@ -58,6 +70,14 @@ impl Repetition {
             node: Box::new(node),
         }
     }
+
+    pub fn get_repeat(&self) -> &Repeat {
+        &self.repeat
+    }
+
+    pub fn get_node(&self) -> &Node {
+        &self.node
+    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Default)]
@@ -76,6 +96,18 @@ impl Repeat {
 
     pub fn with(min: Option<usize>, max: Option<usize>) -> Self {
         Self { min, max }
+    }
+
+    pub fn get_min(&self) -> Option<usize> {
+        self.min
+    }
+
+    pub fn get_max(&self) -> Option<usize> {
+        self.max
+    }
+
+    pub fn get_min_max(&self) -> (Option<usize>, Option<usize>) {
+        (self.min, self.max)
     }
 }
 
