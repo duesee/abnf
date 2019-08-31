@@ -1,13 +1,14 @@
 //! This example shows how to use the `abnf` crate to create a dependency graph of `Rule`s.
 
-use abnf::{rulelist, Rule, Node};
-use std::fs::File;
+use abnf::{rulelist, Node, Rule};
 use std::env::args;
+use std::fs::File;
 use std::io::Read;
 
 /// A type which implements this trait is able to report on what rules it "depends" on.
 /// For simplicity, the dependencies are just a vector of strings here.
 trait Dependencies {
+    /// Obtain a list of all rulenames.
     fn calc_dependencies(&self) -> Vec<String>;
 }
 
@@ -18,13 +19,11 @@ impl Dependencies for Rule {
 }
 
 impl Dependencies for Node {
-    /// Obtain a list of all `Rulename`s.
     fn calc_dependencies(&self) -> Vec<String> {
         match self {
             // If we are an alternation or a concatenation,
             // collect the dependencies of all the alternated/concatenated elements.
-            Node::Alternation(nodes) |
-            Node::Concatenation(nodes) => {
+            Node::Alternation(nodes) | Node::Concatenation(nodes) => {
                 let mut ret_val = Vec::new();
                 for node in nodes {
                     for dep in node.calc_dependencies() {
@@ -39,7 +38,6 @@ impl Dependencies for Node {
             Node::Repetition(repr) => repr.get_node().calc_dependencies(),
             Node::Rulename(name) => vec![name.to_owned()],
             Node::NumVal(_) | Node::CharVal(_) | Node::ProseVal(_) => vec![],
-
         }
     }
 }
@@ -78,7 +76,8 @@ fn main() -> std::io::Result<()> {
     println!("\tlayout=neato;");
     println!("");
     for rule in rules.iter() {
-        let deps = rule.calc_dependencies()
+        let deps = rule
+            .calc_dependencies()
             .iter()
             .map(|name| name.replace("-", "_"))
             .collect::<Vec<_>>();
