@@ -48,49 +48,29 @@ fn main() -> std::io::Result<()> {
         let mut data = Vec::new();
         file.read_to_end(&mut data)?;
 
-        match rulelist(&data) {
-            Ok((remaining, rules)) => {
-                if !remaining.is_empty() {
-                    eprintln!("Trailing data at the end. You might have an error in your syntax.");
-                    if let Some(rule) = rules.last() {
-                        eprintln!("Note: The error must be after rule `{}`", rule);
-                    }
-                    eprintln!("Note: Try adding a newline at the end.");
-                    std::process::exit(1);
-                }
+        let (remaining, rules) = rulelist(&data).expect("error while parsing");
 
-                rules
-            }
-            Err(_) => {
-                eprintln!("Could not parse any data. Please check your ABNF syntax.");
-                eprintln!("Note: Try adding a newline at the end.");
-                std::process::exit(1);
-            }
+        if !remaining.is_empty() {
+            panic!("trailing data");
         }
+
+        rules
     };
 
     println!("digraph {{");
     println!("\tcompound=true;");
     println!("\toverlap=scalexy;");
     println!("\tsplines=true;");
-    println!("\tlayout=neato;");
-    println!("");
+    println!("\tlayout=neato;\n");
     for rule in rules.iter() {
+        let name = rule.get_name().to_owned().replace("-", "_");
         let deps = rule
             .calc_dependencies()
             .iter()
             .map(|name| name.replace("-", "_"))
             .collect::<Vec<_>>();
 
-        if let Some((last, head)) = deps.split_last() {
-            print!("\t{} -> {{ ", rule.get_name().replace("-", "_"));
-
-            for dep in head {
-                print!("{}, ", dep);
-            }
-
-            println!("{} }}", last);
-        }
+        println!("\t{} -> {{{}}}", name, deps.join(" "));
     }
     println!("}}");
 
