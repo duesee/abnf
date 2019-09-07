@@ -3,6 +3,8 @@ use abnf::rulelist;
 use std::fs::File;
 use std::io::{self, Read};
 
+use nom::error::VerboseError;
+
 fn read_to_string(path: &str) -> io::Result<String> {
     let mut file = File::open(path)?;
     let mut data = String::new();
@@ -33,7 +35,7 @@ fn main() -> std::io::Result<()> {
         data
     };
 
-    let (remaining, rules) = rulelist(&data).unwrap();
+    let (remaining, rules) = rulelist::<VerboseError<&str>>(&data).unwrap();
 
     for rule in &rules {
         println!("[!] {}", rule);

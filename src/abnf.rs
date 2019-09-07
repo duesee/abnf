@@ -11,7 +11,7 @@ use crate::{core::*, types::*};
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_while};
 use nom::character::complete::char;
-use nom::combinator::{all_consuming, map, opt};
+use nom::combinator::{all_consuming, map, opt, cut};
 use nom::error::{context, ParseError};
 use nom::multi::{many0, many1};
 use nom::sequence::tuple;
@@ -41,7 +41,7 @@ pub fn rulelist<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, 
 ///         ; continues if next line starts
 ///         ;  with white space
 pub fn rule<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, Rule, E> {
-    let parser = tuple((rulename, defined_as, elements, opt(c_nl)));
+    let parser = tuple((rulename, defined_as, elements, cut(c_nl)));
 
     let (input, (name, definition, elements, _)) = parser(input)?;
 
