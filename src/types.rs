@@ -200,6 +200,7 @@ impl fmt::Display for Node {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::rule;
 
     #[test]
     fn test_display_rule() {
@@ -219,6 +220,25 @@ mod test {
     fn test_display_prose() {
         let rule = Rule::new("rule", Node::ProseVal("test".into()));
         assert_eq!("rule = <test>", rule.to_string());
+    }
+
+    #[test]
+    fn test_error_handling() {
+        // This test is only a reminder to implement nice error reporting.
+        use nom::Err as NomErr;
+
+        let data = b"a = b\n??";
+
+        match rule(&data[..]) {
+            Ok((rem, rule)) => println!("Parsed: {:?}\n Remaining: {:02X?}", rule, rem),
+            Err(err) => match err {
+                NomErr::Incomplete(needed) => println!("Incomplete: {:?}", needed),
+                NomErr::Error(e) => println!("Error: {:?}", e),
+                NomErr::Failure(e) => println!("Failure: {:?}", e),
+            }
+        }
+
+        panic!("still not usable");
     }
 
     #[test]
