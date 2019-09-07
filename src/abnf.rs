@@ -18,7 +18,7 @@ use nom::IResult;
 
 /// rulelist = 1*( rule / (*WSP c-nl) )
 /// Errata ID: 3076
-pub fn rulelist(input: &[u8]) -> IResult<&[u8], Vec<Rule>> {
+pub fn rulelist(input: &str) -> IResult<&str, Vec<Rule>> {
     let parser = many1(alt((
         map(rule, Some),
         map(tuple((many0(WSP), c_nl)), |_| None),
@@ -39,7 +39,7 @@ pub fn rulelist(input: &[u8]) -> IResult<&[u8], Vec<Rule>> {
 /// rule = rulename defined-as elements c-nl
 ///         ; continues if next line starts
 ///         ;  with white space
-pub fn rule(input: &[u8]) -> IResult<&[u8], Rule> {
+pub fn rule(input: &str) -> IResult<&str, Rule> {
     let parser = tuple((rulename, defined_as, elements, c_nl));
 
     let (input, (name, definition, elements, _)) = parser(input)?;
@@ -48,21 +48,22 @@ pub fn rule(input: &[u8]) -> IResult<&[u8], Rule> {
 }
 
 /// rulename = ALPHA *(ALPHA / DIGIT / "-")
-pub fn rulename(input: &[u8]) -> IResult<&[u8], String> {
-    let valid = |x| is_ALPHA(x) || is_DIGIT(x) || x == b'-';
+pub fn rulename(input: &str) -> IResult<&str, String> {
+    let valid = |x| is_ALPHA(x) || is_DIGIT(x) || x == '-';
 
     let (input, (head, tail)) = tuple((ALPHA, take_while(valid)))(input)?;
 
-    let mut val = vec![head as u8];
-    val.extend(tail.iter());
+    let mut val = String::new();
+    val.push(head);
+    val.push_str(tail);
 
-    Ok((input, val.into_iter().map(|x| x as char).collect()))
+    Ok((input, val))
 }
 
 /// defined-as = *c-wsp ("=" / "=/") *c-wsp
 ///               ; basic rules definition and
 ///               ;  incremental alternatives
-pub fn defined_as(input: &[u8]) -> IResult<&[u8], Definition> {
+pub fn defined_as(input: &str) -> IResult<&str, Definition> {
     let parser = tuple((
         many0(c_wsp),
         alt((
@@ -79,7 +80,7 @@ pub fn defined_as(input: &[u8]) -> IResult<&[u8], Definition> {
 
 /// elements = alternation *WSP
 /// Errata ID: 2968
-pub fn elements(input: &[u8]) -> IResult<&[u8], Node> {
+pub fn elements(input: &str) -> IResult<&str, Node> {
     let parser = tuple((alternation, many0(WSP)));
 
     let (input, (alternation, _)) = parser(input)?;
@@ -88,7 +89,7 @@ pub fn elements(input: &[u8]) -> IResult<&[u8], Node> {
 }
 
 ///c-wsp = WSP / (c-nl WSP)
-pub fn c_wsp(input: &[u8]) -> IResult<&[u8], ()> {
+pub fn c_wsp(input: &str) -> IResult<&str, ()> {
     let parser = alt((map(WSP, |_| ()), map(tuple((c_nl, WSP)), |_| ())));
 
     let (input, _) = parser(input)?;
@@ -97,7 +98,7 @@ pub fn c_wsp(input: &[u8]) -> IResult<&[u8], ()> {
 }
 
 /// c-nl = comment / CRLF ; comment or newline
-pub fn c_nl(input: &[u8]) -> IResult<&[u8], ()> {
+pub fn c_nl(input: &str) -> IResult<&str, ()> {
     let parser = alt((comment, map(CRLF, |_| ())));
 
     let (input, _) = parser(input)?;
@@ -106,7 +107,7 @@ pub fn c_nl(input: &[u8]) -> IResult<&[u8], ()> {
 }
 
 /// comment = ";" *(WSP / VCHAR) CRLF
-pub fn comment(input: &[u8]) -> IResult<&[u8], ()> {
+pub fn comment(input: &str) -> IResult<&str, ()> {
     let valid = |x| is_WSP(x) || is_VCHAR(x);
 
     let (input, (_, _, _)) = tuple((char(';'), take_while(valid), CRLF))(input)?;
@@ -115,7 +116,7 @@ pub fn comment(input: &[u8]) -> IResult<&[u8], ()> {
 }
 
 /// alternation = concatenation *(*c-wsp "/" *c-wsp concatenation)
-pub fn alternation(input: &[u8]) -> IResult<&[u8], Node> {
+pub fn alternation(input: &str) -> IResult<&str, Node> {
     let parser = tuple((
         concatenation,
         many0(tuple((
@@ -143,7 +144,7 @@ pub fn alternation(input: &[u8]) -> IResult<&[u8], Node> {
 }
 
 /// concatenation = repetition *(1*c-wsp repetition)
-pub fn concatenation(input: &[u8]) -> IResult<&[u8], Node> {
+pub fn concatenation(input: &str) -> IResult<&str, Node> {
     let parser = tuple((repetition, many0(tuple((many1(c_wsp), repetition)))));
 
     let (input, (head, tail)) = parser(input)?;
@@ -163,7 +164,7 @@ pub fn concatenation(input: &[u8]) -> IResult<&[u8], Node> {
 }
 
 /// repetition = [repeat] element
-pub fn repetition(input: &[u8]) -> IResult<&[u8], Node> {
+pub fn repetition(input: &str) -> IResult<&str, Node> {
     let parser = tuple((opt(repeat), element));
 
     let (input, (repeat, node)) = parser(input)?;
@@ -177,7 +178,7 @@ pub fn repetition(input: &[u8]) -> IResult<&[u8], Node> {
 }
 
 /// repeat = 1*DIGIT / (*DIGIT "*" *DIGIT)
-pub fn repeat(input: &[u8]) -> IResult<&[u8], Repeat> {
+pub fn repeat(input: &str) -> IResult<&str, Repeat> {
     let parser = alt((
         map(
             tuple((many0(DIGIT), char('*'), many0(DIGIT))),
@@ -209,14 +210,14 @@ pub fn repeat(input: &[u8]) -> IResult<&[u8], Repeat> {
 }
 
 /// element = rulename / group / option / char-val / num-val / prose-val
-pub fn element(input: &[u8]) -> IResult<&[u8], Node> {
+pub fn element(input: &str) -> IResult<&str, Node> {
     let parser = alt((
         map(rulename, Node::Rulename),
         map(group, |e| e),
         map(option, |e| e),
-        map(char_val, Node::CharVal),
+        map(char_val, |str| Node::CharVal(str.to_owned())),
         map(num_val, Node::NumVal),
-        map(prose_val, Node::ProseVal),
+        map(prose_val, |str| Node::ProseVal(str.to_owned())),
     ));
 
     let (input, val) = parser(input)?;
@@ -225,7 +226,7 @@ pub fn element(input: &[u8]) -> IResult<&[u8], Node> {
 }
 
 /// group = "(" *c-wsp alternation *c-wsp ")"
-pub fn group(input: &[u8]) -> IResult<&[u8], Node> {
+pub fn group(input: &str) -> IResult<&str, Node> {
     let parser = tuple((
         char('('),
         many0(c_wsp),
@@ -240,7 +241,7 @@ pub fn group(input: &[u8]) -> IResult<&[u8], Node> {
 }
 
 /// option = "[" *c-wsp alternation *c-wsp "]"
-pub fn option(input: &[u8]) -> IResult<&[u8], Node> {
+pub fn option(input: &str) -> IResult<&str, Node> {
     let parser = tuple((
         char('['),
         many0(c_wsp),
@@ -257,19 +258,19 @@ pub fn option(input: &[u8]) -> IResult<&[u8], Node> {
 /// char-val = DQUOTE *(%x20-21 / %x23-7E) DQUOTE
 ///             ; quoted string of SP and VCHAR
 ///             ;  without DQUOTE
-pub fn char_val(input: &[u8]) -> IResult<&[u8], String> {
+pub fn char_val(input: &str) -> IResult<&str, &str> {
     let char_val_chars = |x| match x {
-        0x20..=0x21 | 0x23..=0x7E => true,
+        '\x20'..='\x21' | '\x23'..='\x7E' => true,
         _ => false,
     };
 
     let (input, (_, val, _)) = tuple((DQUOTE, take_while(char_val_chars), DQUOTE))(input)?;
 
-    Ok((input, val.iter().map(|b| *b as char).collect()))
+    Ok((input, val))
 }
 
 /// num-val = "%" (bin-val / dec-val / hex-val)
-pub fn num_val(input: &[u8]) -> IResult<&[u8], Range> {
+pub fn num_val(input: &str) -> IResult<&str, Range> {
     let parser = tuple((char('%'), alt((bin_val, dec_val, hex_val))));
 
     let (input, (_, range)) = parser(input)?;
@@ -280,7 +281,7 @@ pub fn num_val(input: &[u8]) -> IResult<&[u8], Range> {
 /// bin-val = "b" 1*BIT [ 1*("." 1*BIT) / ("-" 1*BIT) ]
 ///            ; series of concatenated bit values
 ///            ;  or single ONEOF range
-pub fn bin_val(input: &[u8]) -> IResult<&[u8], Range> {
+pub fn bin_val(input: &str) -> IResult<&str, Range> {
     let (input, _) = char('b')(input)?;
 
     let (input, start) = map(many1(BIT), |val| {
@@ -315,7 +316,7 @@ pub fn bin_val(input: &[u8]) -> IResult<&[u8], Range> {
 }
 
 /// dec-val = "d" 1*DIGIT [ 1*("." 1*DIGIT) / ("-" 1*DIGIT) ]
-pub fn dec_val(input: &[u8]) -> IResult<&[u8], Range> {
+pub fn dec_val(input: &str) -> IResult<&str, Range> {
     let (input, _) = char('d')(input)?;
 
     let (input, start) = map(many1(DIGIT), |val| {
@@ -346,7 +347,7 @@ pub fn dec_val(input: &[u8]) -> IResult<&[u8], Range> {
 }
 
 /// hex-val = "x" 1*HEXDIG [ 1*("." 1*HEXDIG) / ("-" 1*HEXDIG) ]
-pub fn hex_val(input: &[u8]) -> IResult<&[u8], Range> {
+pub fn hex_val(input: &str) -> IResult<&str, Range> {
     let (input, _) = char('x')(input)?;
 
     let (input, start) = map(many1(HEXDIG), |val| {
@@ -379,15 +380,15 @@ pub fn hex_val(input: &[u8]) -> IResult<&[u8], Range> {
 /// prose-val = "<" *(%x20-3D / %x3F-7E) ">"
 ///             ; bracketed string of SP and VCHAR without angles
 ///             ; prose description, to be used as last resort
-pub fn prose_val(input: &[u8]) -> IResult<&[u8], String> {
+pub fn prose_val(input: &str) -> IResult<&str, &str> {
     let prose_val_chars = |x| match x {
-        0x20..=0x3D | 0x3F..=0x7E => true,
+        '\x20'..='\x3D' | '\x3F'..='\x7E' => true,
         _ => false,
     };
 
     let (input, (_, val, _)) = tuple((char('<'), take_while(prose_val_chars), char('>')))(input)?;
 
-    Ok((input, val.iter().map(|b| *b as char).collect()))
+    Ok((input, val))
 }
 
 #[cfg(test)]
@@ -524,7 +525,7 @@ mod tests {
         ];
 
         for (test, expected) in tests {
-            let (remaining, got) = rule(test.as_bytes()).unwrap();
+            let (remaining, got) = rule(test).unwrap();
             assert!(remaining.is_empty());
             assert_eq!(got, expected);
         }
@@ -532,23 +533,23 @@ mod tests {
 
     #[test]
     fn test_rulename() {
-        assert_eq!(rulename(b"a").unwrap().1, "a");
-        assert_eq!(rulename(b"A").unwrap().1, "A");
-        assert_eq!(rulename(b"ab").unwrap().1, "ab");
-        assert_eq!(rulename(b"Ab").unwrap().1, "Ab");
-        assert_eq!(rulename(b"A-b").unwrap().1, "A-b");
+        assert_eq!(rulename("a").unwrap().1, "a");
+        assert_eq!(rulename("A").unwrap().1, "A");
+        assert_eq!(rulename("ab").unwrap().1, "ab");
+        assert_eq!(rulename("Ab").unwrap().1, "Ab");
+        assert_eq!(rulename("A-b").unwrap().1, "A-b");
     }
 
     #[test]
     fn test_alternation() {
-        let (remaining, res) = alternation(b"A / \"xxx\"").unwrap();
+        let (remaining, res) = alternation("A / \"xxx\"").unwrap();
         assert!(remaining.len() == 0);
         println!("{:?}", res);
     }
 
     #[test]
     fn test_repetition() {
-        let (remaining, res) = repetition(b"1*1A").unwrap();
+        let (remaining, res) = repetition("1*1A").unwrap();
         assert!(remaining.len() == 0);
         println!("{:?}", res);
     }
@@ -556,9 +557,9 @@ mod tests {
     #[test]
     fn test_num_val() {
         let expected = Range::OneOf(vec![0x00, 0x0A, 0xff]);
-        let got1 = num_val(b"%b0.1010.11111111");
-        let got2 = num_val(b"%d0.10.255");
-        let got3 = num_val(b"%x0.A.ff");
+        let got1 = num_val("%b0.1010.11111111");
+        let got2 = num_val("%d0.10.255");
+        let got3 = num_val("%x0.A.ff");
         assert_eq!(expected, got1.unwrap().1);
         assert_eq!(expected, got2.unwrap().1);
         assert_eq!(expected, got3.unwrap().1);
@@ -567,39 +568,39 @@ mod tests {
     #[test]
     fn test_bin_val() {
         let expected = Range::OneOf(vec![0x00, 0x03, 0xff]);
-        let got = bin_val(b"b00.11.11111111");
+        let got = bin_val("b00.11.11111111");
         assert_eq!(expected, got.unwrap().1);
 
         let expected = Range::Range(0, 255);
-        let got = bin_val(b"b00-11111111");
+        let got = bin_val("b00-11111111");
         assert_eq!(expected, got.unwrap().1)
     }
 
     #[test]
     fn test_dec_val() {
         let expected = Range::OneOf(vec![0, 42, 255]);
-        let got = dec_val(b"d0.42.255");
+        let got = dec_val("d0.42.255");
         assert_eq!(expected, got.unwrap().1);
 
         let expected = Range::Range(0, 255);
-        let got = dec_val(b"d0-255");
+        let got = dec_val("d0-255");
         assert_eq!(expected, got.unwrap().1)
     }
 
     #[test]
     fn test_hex_val() {
         let expected = Range::OneOf(vec![0xCA, 0xFF, 0xEE]);
-        let got = hex_val(b"xCA.FF.EE");
+        let got = hex_val("xCA.FF.EE");
         assert_eq!(expected, got.unwrap().1);
 
         let expected = Range::Range(0, 255);
-        let got = hex_val(b"x00-FF");
+        let got = hex_val("x00-FF");
         assert_eq!(expected, got.unwrap().1)
     }
 
     #[test]
     fn test_prose_val() {
-        assert_eq!("Hello, World!", prose_val(b"<Hello, World!>").unwrap().1)
+        assert_eq!("Hello, World!", prose_val("<Hello, World!>").unwrap().1)
     }
 
     #[test]
@@ -620,7 +621,7 @@ mod tests {
         ];
 
         for (test, expected) in tests {
-            let (remaining, got) = rule(test.as_bytes()).unwrap();
+            let (remaining, got) = rule(test).unwrap();
             assert!(remaining.is_empty());
             assert_eq!(got, expected);
         }
@@ -640,7 +641,7 @@ mod tests {
         // * Repetition(Repetition(...)) is not parsable.
         let printed = test.to_string() + "\n";
 
-        if let Err(_) = rule(printed.as_bytes()) {
+        if let Err(_) = rule(&printed) {
             println!("# Found interesting rule:");
             println!("{}", test);
             println!("{:#?}", test);

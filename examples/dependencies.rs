@@ -45,8 +45,8 @@ impl Dependencies for Node {
 fn main() -> std::io::Result<()> {
     let rules = {
         let mut file = File::open(args().nth(1).expect("no file given"))?;
-        let mut data = Vec::new();
-        file.read_to_end(&mut data)?;
+        let mut data = String::new();
+        file.read_to_string(&mut data)?;
 
         let (remaining, rules) = rulelist(&data).expect("error while parsing");
 

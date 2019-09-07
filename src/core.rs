@@ -8,117 +8,108 @@
 
 use nom::branch::alt;
 use nom::bytes::complete::tag;
-use nom::character::complete::char;
+use nom::character::complete::{char, one_of};
 use nom::combinator::map;
+use nom::combinator::recognize;
 use nom::multi::many0;
 use nom::sequence::tuple;
 use nom::{Err, IResult};
 
-/// ALPHA = %x41-5A / %x61-7A ; A-Z / a-z
-pub fn ALPHA(i: &[u8]) -> IResult<&[u8], char> {
-    if i.is_empty() {
-        Err(Err::Error((i, nom::error::ErrorKind::Char)))
-    } else if is_ALPHA(i[0]) {
-        Ok((&i[1..], i[0] as char))
+pub fn one<F: Fn(char) -> bool>(input: &str, f: F) -> IResult<&str, char> {
+    if input.is_empty() {
+        return Err(Err::Error((input, nom::error::ErrorKind::Char)));
+    }
+
+    let mut chars = input.chars();
+    let first = chars.nth(0).unwrap();
+
+    if f(first) {
+        Ok((chars.as_str(), first))
     } else {
-        Err(Err::Error((i, nom::error::ErrorKind::Char)))
+        Err(Err::Error((input, nom::error::ErrorKind::Char)))
     }
 }
 
-pub fn is_ALPHA(i: u8) -> bool {
-    match i as char {
-        'a'..='z' | 'A'..='Z' => true,
-        _ => false,
-    }
+/// ALPHA = %x41-5A / %x61-7A ; A-Z / a-z
+pub fn ALPHA(input: &str) -> IResult<&str, char> {
+    one(input, is_ALPHA)
+}
+
+pub fn is_ALPHA(c: char) -> bool {
+    c.is_ascii_alphabetic()
 }
 
 /// BIT = "0" / "1"
-pub fn BIT(input: &[u8]) -> IResult<&[u8], char> {
-    nom::character::complete::one_of("01")(input)
+pub fn BIT(input: &str) -> IResult<&str, char> {
+    one_of("01")(input)
 }
 
 /// CHAR = %x01-7F ; any 7-bit US-ASCII character, excluding NUL
-pub fn CHAR(i: &[u8]) -> IResult<&[u8], &[u8]> {
-    if i.is_empty() {
-        Err(Err::Error((i, nom::error::ErrorKind::Char)))
-    } else if is_CHAR(i[0]) {
-        Ok((&i[1..], &i[0..1]))
-    } else {
-        Err(Err::Error((i, nom::error::ErrorKind::Char)))
-    }
+pub fn CHAR(input: &str) -> IResult<&str, char> {
+    one(input, is_CHAR)
 }
 
-pub fn is_CHAR(i: u8) -> bool {
-    match i {
-        0x01..=0x7F => true,
+pub fn is_CHAR(c: char) -> bool {
+    match c {
+        '\x01'..='\x7F' => true,
         _ => false,
     }
 }
 
 /// CR = %x0D ; carriage return
-pub fn CR(input: &[u8]) -> IResult<&[u8], char> {
+pub fn CR(input: &str) -> IResult<&str, char> {
     char('\r')(input)
 }
 
 /// CRLF = CR LF ; Internet standard newline
-pub fn CRLF(input: &[u8]) -> IResult<&[u8], &[u8]> {
-    alt((tag("\r\n"), tag("\n")))(input) // FIXME: ?
+pub fn CRLF(input: &str) -> IResult<&str, &str> {
+    // This function accepts both, LF and CRLF
+    // FIXME: ?
+    alt((tag("\r\n"), tag("\n")))(input)
 }
 
 /// CTL = %x00-1F / %x7F ; controls
-pub fn CTL(i: &[u8]) -> IResult<&[u8], &[u8]> {
-    if i.is_empty() {
-        Err(Err::Error((i, nom::error::ErrorKind::Char)))
-    } else if is_CTL(i[0]) {
-        Ok((&i[1..], &i[0..1]))
-    } else {
-        Err(Err::Error((i, nom::error::ErrorKind::Char)))
-    }
+pub fn CTL(input: &str) -> IResult<&str, char> {
+    one(input, is_CTL)
 }
 
-pub fn is_CTL(i: u8) -> bool {
-    match i {
-        0x00..=0x1F | 0x7F => true,
+pub fn is_CTL(c: char) -> bool {
+    match c {
+        '\x00'..='\x1F' | '\x7F' => true,
         _ => false,
     }
 }
 
 /// DIGIT = %x30-39 ; 0-9
-pub fn DIGIT(input: &[u8]) -> IResult<&[u8], char> {
-    nom::character::complete::one_of("0123456789")(input)
+pub fn DIGIT(input: &str) -> IResult<&str, char> {
+    one_of("0123456789")(input)
 }
 
-pub fn is_DIGIT(i: u8) -> bool {
-    match i {
-        b'0'..=b'9' => true,
-        _ => false,
-    }
+pub fn is_DIGIT(c: char) -> bool {
+    c.is_ascii_digit()
 }
 
 /// DQUOTE = %x22 ; " (Double Quote)
-pub fn DQUOTE(input: &[u8]) -> IResult<&[u8], char> {
+pub fn DQUOTE(input: &str) -> IResult<&str, char> {
     char('"')(input)
 }
 
 /// HEXDIG = DIGIT / "A" / "B" / "C" / "D" / "E" / "F"
-pub fn HEXDIG(input: &[u8]) -> IResult<&[u8], char> {
-    nom::character::complete::one_of("0123456789abcdefABCDEF")(input)
+pub fn HEXDIG(input: &str) -> IResult<&str, char> {
+    one(input, is_HEXDIG)
 }
 
-pub fn is_HEXDIG(i: u8) -> bool {
-    match i {
-        b'0'..=b'9' | b'a'..=b'f' | b'A'..=b'F' => true,
-        _ => false,
-    }
+pub fn is_HEXDIG(c: char) -> bool {
+    c.is_ascii_hexdigit()
 }
 
 /// HTAB = %x09 ; horizontal tab
-pub fn HTAB(input: &[u8]) -> IResult<&[u8], char> {
+pub fn HTAB(input: &str) -> IResult<&str, char> {
     char('\t')(input)
 }
 
 /// LF = %x0A ; linefeed
-pub fn LF(input: &[u8]) -> IResult<&[u8], char> {
+pub fn LF(input: &str) -> IResult<&str, char> {
     char('\n')(input)
 }
 
@@ -132,91 +123,76 @@ pub fn LF(input: &[u8]) -> IResult<&[u8], char> {
 ///         ; Do not use when defining mail
 ///         ;  headers and use with caution in
 ///         ;  other contexts.
-pub fn LWSP(input: &[u8]) -> IResult<&[u8], Vec<Vec<u8>>> {
-    let parser = many0(alt((
-        map(WSP, |c| vec![c as u8]),
-        map(tuple((CRLF, WSP)), |(crlf, wsp)| {
-            let mut tmp = Vec::new();
-            tmp.extend(crlf);
-            tmp.push(wsp as u8);
-            tmp
-        }),
-    )));
+pub fn LWSP(input: &str) -> IResult<&str, &str> {
+    let parser = recognize(many0(alt((recognize(WSP), recognize(tuple((CRLF, WSP)))))));
 
     parser(input)
 }
 
 /// OCTET = %x00-FF ; 8 bits of data
-pub fn OCTET(i: &[u8]) -> IResult<&[u8], &[u8]> {
-    if i.is_empty() {
-        Err(Err::Error((i, nom::error::ErrorKind::Char)))
+pub fn OCTET(input: &[u8]) -> IResult<&[u8], &[u8]> {
+    if input.is_empty() {
+        Err(Err::Error((input, nom::error::ErrorKind::Char)))
     } else {
-        Ok((&i[1..], &i[0..1]))
+        Ok((&input[1..], &input[0..1]))
     }
 }
 
 /// SP = %x20
-pub fn SP(input: &[u8]) -> IResult<&[u8], char> {
+pub fn SP(input: &str) -> IResult<&str, char> {
     char(' ')(input)
 }
 
 /// VCHAR = %x21-7E ; visible (printing) characters
-pub fn VCHAR(i: &[u8]) -> IResult<&[u8], char> {
-    if i.is_empty() {
-        Err(Err::Error((i, nom::error::ErrorKind::Char)))
-    } else if is_VCHAR(i[0]) {
-        Ok((&i[1..], i[0] as char))
-    } else {
-        Err(Err::Error((i, nom::error::ErrorKind::Char)))
-    }
+pub fn VCHAR(input: &str) -> IResult<&str, char> {
+    one(input, is_VCHAR)
 }
 
-pub fn is_VCHAR(i: u8) -> bool {
-    match i {
-        0x21..=0x7E => true,
+pub fn is_VCHAR(c: char) -> bool {
+    match c {
+        '\x21'..='\x7E' => true,
         _ => false,
     }
 }
 
 /// WSP = SP / HTAB ; white space
-pub fn WSP(input: &[u8]) -> IResult<&[u8], char> {
+pub fn WSP(input: &str) -> IResult<&str, char> {
     alt((SP, HTAB))(input)
 }
 
-pub fn is_WSP(i: u8) -> bool {
-    match i {
-        0x20 | 0x09 => true,
+pub fn is_WSP(c: char) -> bool {
+    match c {
+        '\x20' | '\x09' => true,
         _ => false,
     }
 }
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
 
     #[test]
     fn test_BIT() {
-        assert_eq!(BIT(b"100"), Ok((&[b'0', b'0'][..], '1')));
-        assert_eq!(BIT(b"010"), Ok((&[b'1', b'0'][..], '0')));
-        assert!(BIT(b"").is_err());
-        assert!(BIT(b"/").is_err());
-        assert!(BIT(b"2").is_err());
+        assert_eq!(BIT("100"), Ok(("00", '1')));
+        assert_eq!(BIT("010"), Ok(("10", '0')));
+        assert!(BIT("").is_err());
+        assert!(BIT("/").is_err());
+        assert!(BIT("2").is_err());
     }
 
     #[test]
     fn test_HEXDIG() {
-        assert_eq!(HEXDIG(b"FaA"), Ok((&[b'a', b'A'][..], 'F')));
+        assert_eq!(HEXDIG("FaA"), Ok(("aA", 'F')));
 
-        assert_eq!(HEXDIG(b"0aA"), Ok((&[b'a', b'A'][..], '0')));
+        assert_eq!(HEXDIG("0aA"), Ok(("aA", '0')));
 
-        assert!(HEXDIG(b"").is_err());
-        assert!(HEXDIG(b"/").is_err());
-        assert!(HEXDIG(b":").is_err());
-        assert!(HEXDIG(b"`").is_err());
-        assert!(HEXDIG(b"g").is_err());
-        assert!(HEXDIG(b"@").is_err());
-        assert!(HEXDIG(b"G").is_err());
+        assert!(HEXDIG("").is_err());
+        assert!(HEXDIG("/").is_err());
+        assert!(HEXDIG(":").is_err());
+        assert!(HEXDIG("`").is_err());
+        assert!(HEXDIG("g").is_err());
+        assert!(HEXDIG("@").is_err());
+        assert!(HEXDIG("G").is_err());
     }
 
 }

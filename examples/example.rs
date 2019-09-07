@@ -3,10 +3,10 @@ use abnf::rulelist;
 use std::fs::File;
 use std::io::{self, Read};
 
-fn read_to_vec(path: &str) -> io::Result<Vec<u8>> {
+fn read_to_string(path: &str) -> io::Result<String> {
     let mut file = File::open(path)?;
-    let mut data = Vec::new();
-    file.read_to_end(&mut data)?;
+    let mut data = String::new();
+    file.read_to_string(&mut data)?;
     Ok(data)
 }
 
@@ -23,11 +23,11 @@ fn main() -> std::io::Result<()> {
     }
 
     let data = {
-        let mut data = Vec::new();
+        let mut data = String::new();
         for path in paths {
-            let mut buffer = read_to_vec(&path)?;
-            data.append(&mut buffer);
-            data.push('\n' as u8);
+            let buffer = read_to_string(&path)?;
+            data.push_str(&buffer);
+            data.push('\n');
         }
 
         data
@@ -40,7 +40,7 @@ fn main() -> std::io::Result<()> {
         println!("[!] {:#?}\n", rule);
     }
 
-    println!("---------------\n{}", String::from_utf8_lossy(remaining));
+    println!("---------------\n{}", remaining);
 
     Ok(())
 }

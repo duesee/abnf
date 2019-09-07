@@ -225,20 +225,23 @@ mod test {
     #[test]
     fn test_error_handling() {
         // This test is only a reminder to implement nice error reporting.
-        use nom::Err as NomErr;
+        use nom::{
+            error::{convert_error, VerboseError},
+            Err as NomErr,
+        };
 
-        let data = b"a = b\n??";
+        let data = "a = b";
 
         match rule(&data[..]) {
             Ok((rem, rule)) => println!("Parsed: {:?}\n Remaining: {:02X?}", rule, rem),
             Err(err) => match err {
                 NomErr::Incomplete(needed) => println!("Incomplete: {:?}", needed),
-                NomErr::Error(e) => println!("Error: {:?}", e),
-                NomErr::Failure(e) => println!("Failure: {:?}", e),
-            }
+                NomErr::Error(e) => println!("Error: {:?}", e), // convert_error(&data, e)
+                NomErr::Failure(e) => println!("Failure: {:?}", e), // convert_error(&data, e)
+            },
         }
 
-        panic!("still not usable");
+        //panic!("still not usable");
     }
 
     #[test]
