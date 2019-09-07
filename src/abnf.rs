@@ -41,7 +41,7 @@ pub fn rulelist<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, 
 ///         ; continues if next line starts
 ///         ;  with white space
 pub fn rule<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, Rule, E> {
-    let parser = tuple((rulename, defined_as, elements, c_nl));
+    let parser = tuple((rulename, defined_as, elements, opt(c_nl)));
 
     let (input, (name, definition, elements, _)) = parser(input)?;
 
