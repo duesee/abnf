@@ -200,7 +200,7 @@ impl fmt::Display for Node {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::rule;
+    use crate::*;
 
     #[test]
     fn test_display_rule() {
@@ -230,18 +230,18 @@ mod test {
             Err as NomErr,
         };
 
-        let data = "a = b";
+        let data = "a = *b\n\n\nb = *x";
 
-        match rule(&data[..]) {
+        match rulelist::<VerboseError<&str>>(&data) {
             Ok((rem, rule)) => println!("Parsed: {:?}\n Remaining: {:02X?}", rule, rem),
             Err(err) => match err {
                 NomErr::Incomplete(needed) => println!("Incomplete: {:?}", needed),
-                NomErr::Error(e) => println!("Error: {:?}", e), // convert_error(&data, e)
-                NomErr::Failure(e) => println!("Failure: {:?}", e), // convert_error(&data, e)
+                NomErr::Error(e) => println!("Error: {}", convert_error(&data, e)),
+                NomErr::Failure(e) => println!("Failure: {}", convert_error(&data, e)),
             },
         }
 
-        //panic!("still not usable");
+        panic!("not done");
     }
 
     #[test]

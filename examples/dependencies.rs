@@ -42,13 +42,16 @@ impl Dependencies for Node {
     }
 }
 
+use nom::error::VerboseError;
+
 fn main() -> std::io::Result<()> {
     let rules = {
         let mut file = File::open(args().nth(1).expect("no file given"))?;
         let mut data = String::new();
         file.read_to_string(&mut data)?;
 
-        let (remaining, rules) = rulelist(&data).expect("error while parsing");
+        let (remaining, rules) =
+            rulelist::<VerboseError<&str>>(&data).expect("error while parsing");
 
         if !remaining.is_empty() {
             panic!("trailing data");

@@ -11,13 +11,20 @@ use nom::bytes::complete::tag;
 use nom::character::complete::{char, one_of};
 use nom::combinator::map;
 use nom::combinator::recognize;
+use nom::error::{ErrorKind, ParseError};
 use nom::multi::many0;
 use nom::sequence::tuple;
 use nom::{Err, IResult};
 
-pub fn one<F: Fn(char) -> bool>(input: &str, f: F) -> IResult<&str, char> {
+pub fn one<'a, E: ParseError<&'a str>, F: Fn(char) -> bool>(
+    input: &'a str,
+    f: F,
+) -> IResult<&'a str, char, E> {
     if input.is_empty() {
-        return Err(Err::Error((input, nom::error::ErrorKind::Char)));
+        return Err(Err::Error(ParseError::from_error_kind(
+            input,
+            ErrorKind::OneOf,
+        )));
     }
 
     let mut chars = input.chars();
@@ -26,12 +33,15 @@ pub fn one<F: Fn(char) -> bool>(input: &str, f: F) -> IResult<&str, char> {
     if f(first) {
         Ok((chars.as_str(), first))
     } else {
-        Err(Err::Error((input, nom::error::ErrorKind::Char)))
+        Err(Err::Error(ParseError::from_error_kind(
+            input,
+            ErrorKind::OneOf,
+        )))
     }
 }
 
 /// ALPHA = %x41-5A / %x61-7A ; A-Z / a-z
-pub fn ALPHA(input: &str) -> IResult<&str, char> {
+pub fn ALPHA<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, char, E> {
     one(input, is_ALPHA)
 }
 
@@ -40,12 +50,12 @@ pub fn is_ALPHA(c: char) -> bool {
 }
 
 /// BIT = "0" / "1"
-pub fn BIT(input: &str) -> IResult<&str, char> {
+pub fn BIT<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, char, E> {
     one_of("01")(input)
 }
 
 /// CHAR = %x01-7F ; any 7-bit US-ASCII character, excluding NUL
-pub fn CHAR(input: &str) -> IResult<&str, char> {
+pub fn CHAR<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, char, E> {
     one(input, is_CHAR)
 }
 
@@ -57,19 +67,19 @@ pub fn is_CHAR(c: char) -> bool {
 }
 
 /// CR = %x0D ; carriage return
-pub fn CR(input: &str) -> IResult<&str, char> {
+pub fn CR<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, char, E> {
     char('\r')(input)
 }
 
 /// CRLF = CR LF ; Internet standard newline
-pub fn CRLF(input: &str) -> IResult<&str, &str> {
+pub fn CRLF<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &str, E> {
     // This function accepts both, LF and CRLF
     // FIXME: ?
     alt((tag("\r\n"), tag("\n")))(input)
 }
 
 /// CTL = %x00-1F / %x7F ; controls
-pub fn CTL(input: &str) -> IResult<&str, char> {
+pub fn CTL<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, char, E> {
     one(input, is_CTL)
 }
 
@@ -81,7 +91,7 @@ pub fn is_CTL(c: char) -> bool {
 }
 
 /// DIGIT = %x30-39 ; 0-9
-pub fn DIGIT(input: &str) -> IResult<&str, char> {
+pub fn DIGIT<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, char, E> {
     one_of("0123456789")(input)
 }
 
@@ -90,12 +100,12 @@ pub fn is_DIGIT(c: char) -> bool {
 }
 
 /// DQUOTE = %x22 ; " (Double Quote)
-pub fn DQUOTE(input: &str) -> IResult<&str, char> {
+pub fn DQUOTE<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, char, E> {
     char('"')(input)
 }
 
 /// HEXDIG = DIGIT / "A" / "B" / "C" / "D" / "E" / "F"
-pub fn HEXDIG(input: &str) -> IResult<&str, char> {
+pub fn HEXDIG<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, char, E> {
     one(input, is_HEXDIG)
 }
 
@@ -104,12 +114,12 @@ pub fn is_HEXDIG(c: char) -> bool {
 }
 
 /// HTAB = %x09 ; horizontal tab
-pub fn HTAB(input: &str) -> IResult<&str, char> {
+pub fn HTAB<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, char, E> {
     char('\t')(input)
 }
 
 /// LF = %x0A ; linefeed
-pub fn LF(input: &str) -> IResult<&str, char> {
+pub fn LF<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, char, E> {
     char('\n')(input)
 }
 
@@ -123,7 +133,7 @@ pub fn LF(input: &str) -> IResult<&str, char> {
 ///         ; Do not use when defining mail
 ///         ;  headers and use with caution in
 ///         ;  other contexts.
-pub fn LWSP(input: &str) -> IResult<&str, &str> {
+pub fn LWSP<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &str, E> {
     let parser = recognize(many0(alt((recognize(WSP), recognize(tuple((CRLF, WSP)))))));
 
     parser(input)
@@ -139,12 +149,12 @@ pub fn OCTET(input: &[u8]) -> IResult<&[u8], &[u8]> {
 }
 
 /// SP = %x20
-pub fn SP(input: &str) -> IResult<&str, char> {
+pub fn SP<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, char, E> {
     char(' ')(input)
 }
 
 /// VCHAR = %x21-7E ; visible (printing) characters
-pub fn VCHAR(input: &str) -> IResult<&str, char> {
+pub fn VCHAR<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, char, E> {
     one(input, is_VCHAR)
 }
 
@@ -156,7 +166,7 @@ pub fn is_VCHAR(c: char) -> bool {
 }
 
 /// WSP = SP / HTAB ; white space
-pub fn WSP(input: &str) -> IResult<&str, char> {
+pub fn WSP<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, char, E> {
     alt((SP, HTAB))(input)
 }
 
@@ -167,6 +177,7 @@ pub fn is_WSP(c: char) -> bool {
     }
 }
 
+/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -196,3 +207,4 @@ mod tests {
     }
 
 }
+*/

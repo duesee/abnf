@@ -11,18 +11,19 @@ use crate::{core::*, types::*};
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_while};
 use nom::character::complete::char;
-use nom::combinator::{map, opt};
+use nom::combinator::{all_consuming, map, opt};
+use nom::error::{context, ParseError};
 use nom::multi::{many0, many1};
 use nom::sequence::tuple;
 use nom::IResult;
 
 /// rulelist = 1*( rule / (*WSP c-nl) )
 /// Errata ID: 3076
-pub fn rulelist(input: &str) -> IResult<&str, Vec<Rule>> {
-    let parser = many1(alt((
+pub fn rulelist<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Vec<Rule>, E> {
+    let parser = all_consuming(many1(alt((
         map(rule, Some),
         map(tuple((many0(WSP), c_nl)), |_| None),
-    )));
+    ))));
 
     let (input, rulelist) = parser(input)?;
 
@@ -39,7 +40,7 @@ pub fn rulelist(input: &str) -> IResult<&str, Vec<Rule>> {
 /// rule = rulename defined-as elements c-nl
 ///         ; continues if next line starts
 ///         ;  with white space
-pub fn rule(input: &str) -> IResult<&str, Rule> {
+pub fn rule<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, Rule, E> {
     let parser = tuple((rulename, defined_as, elements, c_nl));
 
     let (input, (name, definition, elements, _)) = parser(input)?;
@@ -48,7 +49,7 @@ pub fn rule(input: &str) -> IResult<&str, Rule> {
 }
 
 /// rulename = ALPHA *(ALPHA / DIGIT / "-")
-pub fn rulename(input: &str) -> IResult<&str, String> {
+pub fn rulename<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, String, E> {
     let valid = |x| is_ALPHA(x) || is_DIGIT(x) || x == '-';
 
     let (input, (head, tail)) = tuple((ALPHA, take_while(valid)))(input)?;
@@ -63,7 +64,7 @@ pub fn rulename(input: &str) -> IResult<&str, String> {
 /// defined-as = *c-wsp ("=" / "=/") *c-wsp
 ///               ; basic rules definition and
 ///               ;  incremental alternatives
-pub fn defined_as(input: &str) -> IResult<&str, Definition> {
+pub fn defined_as<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Definition, E> {
     let parser = tuple((
         many0(c_wsp),
         alt((
@@ -80,7 +81,7 @@ pub fn defined_as(input: &str) -> IResult<&str, Definition> {
 
 /// elements = alternation *WSP
 /// Errata ID: 2968
-pub fn elements(input: &str) -> IResult<&str, Node> {
+pub fn elements<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Node, E> {
     let parser = tuple((alternation, many0(WSP)));
 
     let (input, (alternation, _)) = parser(input)?;
@@ -89,7 +90,7 @@ pub fn elements(input: &str) -> IResult<&str, Node> {
 }
 
 ///c-wsp = WSP / (c-nl WSP)
-pub fn c_wsp(input: &str) -> IResult<&str, ()> {
+pub fn c_wsp<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, (), E> {
     let parser = alt((map(WSP, |_| ()), map(tuple((c_nl, WSP)), |_| ())));
 
     let (input, _) = parser(input)?;
@@ -98,7 +99,7 @@ pub fn c_wsp(input: &str) -> IResult<&str, ()> {
 }
 
 /// c-nl = comment / CRLF ; comment or newline
-pub fn c_nl(input: &str) -> IResult<&str, ()> {
+pub fn c_nl<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, (), E> {
     let parser = alt((comment, map(CRLF, |_| ())));
 
     let (input, _) = parser(input)?;
@@ -107,7 +108,7 @@ pub fn c_nl(input: &str) -> IResult<&str, ()> {
 }
 
 /// comment = ";" *(WSP / VCHAR) CRLF
-pub fn comment(input: &str) -> IResult<&str, ()> {
+pub fn comment<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, (), E> {
     let valid = |x| is_WSP(x) || is_VCHAR(x);
 
     let (input, (_, _, _)) = tuple((char(';'), take_while(valid), CRLF))(input)?;
@@ -116,7 +117,7 @@ pub fn comment(input: &str) -> IResult<&str, ()> {
 }
 
 /// alternation = concatenation *(*c-wsp "/" *c-wsp concatenation)
-pub fn alternation(input: &str) -> IResult<&str, Node> {
+pub fn alternation<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Node, E> {
     let parser = tuple((
         concatenation,
         many0(tuple((
@@ -144,7 +145,7 @@ pub fn alternation(input: &str) -> IResult<&str, Node> {
 }
 
 /// concatenation = repetition *(1*c-wsp repetition)
-pub fn concatenation(input: &str) -> IResult<&str, Node> {
+pub fn concatenation<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Node, E> {
     let parser = tuple((repetition, many0(tuple((many1(c_wsp), repetition)))));
 
     let (input, (head, tail)) = parser(input)?;
@@ -164,7 +165,7 @@ pub fn concatenation(input: &str) -> IResult<&str, Node> {
 }
 
 /// repetition = [repeat] element
-pub fn repetition(input: &str) -> IResult<&str, Node> {
+pub fn repetition<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Node, E> {
     let parser = tuple((opt(repeat), element));
 
     let (input, (repeat, node)) = parser(input)?;
@@ -178,7 +179,7 @@ pub fn repetition(input: &str) -> IResult<&str, Node> {
 }
 
 /// repeat = 1*DIGIT / (*DIGIT "*" *DIGIT)
-pub fn repeat(input: &str) -> IResult<&str, Repeat> {
+pub fn repeat<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Repeat, E> {
     let parser = alt((
         map(
             tuple((many0(DIGIT), char('*'), many0(DIGIT))),
@@ -210,7 +211,7 @@ pub fn repeat(input: &str) -> IResult<&str, Repeat> {
 }
 
 /// element = rulename / group / option / char-val / num-val / prose-val
-pub fn element(input: &str) -> IResult<&str, Node> {
+pub fn element<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Node, E> {
     let parser = alt((
         map(rulename, Node::Rulename),
         map(group, |e| e),
@@ -226,7 +227,7 @@ pub fn element(input: &str) -> IResult<&str, Node> {
 }
 
 /// group = "(" *c-wsp alternation *c-wsp ")"
-pub fn group(input: &str) -> IResult<&str, Node> {
+pub fn group<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Node, E> {
     let parser = tuple((
         char('('),
         many0(c_wsp),
@@ -241,7 +242,7 @@ pub fn group(input: &str) -> IResult<&str, Node> {
 }
 
 /// option = "[" *c-wsp alternation *c-wsp "]"
-pub fn option(input: &str) -> IResult<&str, Node> {
+pub fn option<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Node, E> {
     let parser = tuple((
         char('['),
         many0(c_wsp),
@@ -258,7 +259,7 @@ pub fn option(input: &str) -> IResult<&str, Node> {
 /// char-val = DQUOTE *(%x20-21 / %x23-7E) DQUOTE
 ///             ; quoted string of SP and VCHAR
 ///             ;  without DQUOTE
-pub fn char_val(input: &str) -> IResult<&str, &str> {
+pub fn char_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &str, E> {
     let char_val_chars = |x| match x {
         '\x20'..='\x21' | '\x23'..='\x7E' => true,
         _ => false,
@@ -270,7 +271,7 @@ pub fn char_val(input: &str) -> IResult<&str, &str> {
 }
 
 /// num-val = "%" (bin-val / dec-val / hex-val)
-pub fn num_val(input: &str) -> IResult<&str, Range> {
+pub fn num_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Range, E> {
     let parser = tuple((char('%'), alt((bin_val, dec_val, hex_val))));
 
     let (input, (_, range)) = parser(input)?;
@@ -281,7 +282,7 @@ pub fn num_val(input: &str) -> IResult<&str, Range> {
 /// bin-val = "b" 1*BIT [ 1*("." 1*BIT) / ("-" 1*BIT) ]
 ///            ; series of concatenated bit values
 ///            ;  or single ONEOF range
-pub fn bin_val(input: &str) -> IResult<&str, Range> {
+pub fn bin_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Range, E> {
     let (input, _) = char('b')(input)?;
 
     let (input, start) = map(many1(BIT), |val| {
@@ -316,7 +317,7 @@ pub fn bin_val(input: &str) -> IResult<&str, Range> {
 }
 
 /// dec-val = "d" 1*DIGIT [ 1*("." 1*DIGIT) / ("-" 1*DIGIT) ]
-pub fn dec_val(input: &str) -> IResult<&str, Range> {
+pub fn dec_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Range, E> {
     let (input, _) = char('d')(input)?;
 
     let (input, start) = map(many1(DIGIT), |val| {
@@ -347,7 +348,7 @@ pub fn dec_val(input: &str) -> IResult<&str, Range> {
 }
 
 /// hex-val = "x" 1*HEXDIG [ 1*("." 1*HEXDIG) / ("-" 1*HEXDIG) ]
-pub fn hex_val(input: &str) -> IResult<&str, Range> {
+pub fn hex_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Range, E> {
     let (input, _) = char('x')(input)?;
 
     let (input, start) = map(many1(HEXDIG), |val| {
@@ -380,7 +381,7 @@ pub fn hex_val(input: &str) -> IResult<&str, Range> {
 /// prose-val = "<" *(%x20-3D / %x3F-7E) ">"
 ///             ; bracketed string of SP and VCHAR without angles
 ///             ; prose description, to be used as last resort
-pub fn prose_val(input: &str) -> IResult<&str, &str> {
+pub fn prose_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &str, E> {
     let prose_val_chars = |x| match x {
         '\x20'..='\x3D' | '\x3F'..='\x7E' => true,
         _ => false,
@@ -390,6 +391,8 @@ pub fn prose_val(input: &str) -> IResult<&str, &str> {
 
     Ok((input, val))
 }
+
+/*
 
 #[cfg(test)]
 mod tests {
@@ -664,3 +667,5 @@ mod tests {
         println!("{}", rule);
     }
 }
+
+*/
