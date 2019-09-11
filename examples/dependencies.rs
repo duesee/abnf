@@ -1,6 +1,6 @@
 //! This example shows how to use the `abnf` crate to create a dependency graph of `Rule`s.
 
-use abnf::{rulelist, Node, Rule};
+use abnf::{rulelist, types::{Node, Rule}};
 use std::env::args;
 use std::fs::File;
 use std::io::Read;
@@ -42,22 +42,16 @@ impl Dependencies for Node {
     }
 }
 
-use nom::error::VerboseError;
-
 fn main() -> std::io::Result<()> {
     let rules = {
         let mut file = File::open(args().nth(1).expect("no file given"))?;
         let mut data = String::new();
         file.read_to_string(&mut data)?;
 
-        let (remaining, rules) =
-            rulelist::<VerboseError<&str>>(&data).expect("error while parsing");
-
-        if !remaining.is_empty() {
-            panic!("trailing data");
-        }
-
-        rules
+        rulelist(&data).unwrap_or_else(|e| {
+            println!("{}", e);
+            std::process::exit(1);
+        })
     };
 
     println!("digraph {{");

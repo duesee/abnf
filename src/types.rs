@@ -1,62 +1,108 @@
+//! This module contains a collection of all types in the ABNF crate.
+//! The types can be used to manually construct new rules.
+//!
+//! **Note**: currently you need to take care of some internals and
+//! use specific containers to construct the variants (e.g. `Vec` for an `Alternation` and `String` for a `Rulename`).
+//!
+//! This crate will provide a better abstraction in the future.
+//!
+//! # Example
+//!
+//! ```
+//! use abnf::types::*;
+//!
+//! let rule = Rule::new("test", Node::Alternation(vec![
+//!     Node::Rulename("A".into()),
+//!     Node::Concatenation(vec![
+//!         Node::Rulename("B".into()),
+//!         Node::Rulename("C".into())
+//!     ])
+//! ]));
+//!
+//! println!("{}", rule); // prints "test = A / B C"
+//! ```
+
 use std::fmt;
 
 /// Is a rule a basic rule or an incremental alternative?
 /// See https://tools.ietf.org/html/rfc5234#section-3.3
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub enum Definition {
+pub enum Kind {
     /// Basic Rule Definition
     Basic,
     /// Incremental Alternative
     Incremental,
 }
 
+/// A single ABNF rule with a name, it's definition (implemented as `Node`) and a kind (`Kind::Basic` or `Kind::Incremental`).
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Rule {
     name: String,
     node: Node,
-    definition: Definition,
+    kind: Kind,
 }
 
 impl Rule {
+    /// Construct a basic rule.
     pub fn new(name: &str, node: Node) -> Rule {
         Rule {
             name: name.into(),
             node,
-            definition: Definition::Basic,
+            kind: Kind::Basic,
         }
     }
 
-    pub fn definition(mut self, definition: Definition) -> Self {
-        self.definition = definition;
-        self
+    /// Construct an incremental rule.
+    pub fn incremental(name: &str, node: Node) -> Rule {
+        Rule {
+            name: name.into(),
+            node,
+            kind: Kind::Incremental,
+        }
     }
 
+    /// Get the name of the rule.
     pub fn get_name(&self) -> &str {
         &self.name
     }
 
+    /// Get the definition of the rule. Implemented as a composition of `Node`s.
     pub fn get_node(&self) -> &Node {
         &self.node
     }
 
-    pub fn get_definition(&self) -> Definition {
-        self.definition
+    /// Get the kind of the rule, i.e. `Basic` or `Incremental`.
+    pub fn get_kind(&self) -> Kind {
+        self.kind
     }
 }
 
+/// A `Node` enumerates all building blocks in ABNF.
+/// Any rule is a composition of `Node`s.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Node {
+    /// An alternation, e.g. `A / B / C`.
     Alternation(Vec<Node>),
+    /// A concatenation, e.g. `A B C`.
     Concatenation(Vec<Node>),
+    /// A repetition, e.g. `*A`.
     Repetition(Repetition),
+    /// A rulename, i.e. a non-terminal.
     Rulename(String),
+    /// A group, e.g. `(A B)`.
     Group(Box<Node>),
+    /// An option, e.g. `[A]`.
     Optional(Box<Node>),
+    /// A literal text string/terminal, e.g. `"http"`.
     CharVal(String),
-    NumVal(Range),
+    /// A single value within a range (e.g. `%x01-ff`)
+    /// or a terminal defined by a series of values (e.g. `%x0f.f1.ce`).
+    NumVal(NumVal),
+    /// A prose string, i.e. `<good luck implementing this>`.
     ProseVal(String),
 }
 
+/// Struct to bind a `Repeat` value to a `Node`.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Repetition {
     repeat: Repeat,
@@ -64,6 +110,7 @@ pub struct Repetition {
 }
 
 impl Repetition {
+    /// Create a Repetition from a repeat value and a node.
     pub fn new(repeat: Repeat, node: Node) -> Self {
         Self {
             repeat,
@@ -71,15 +118,19 @@ impl Repetition {
         }
     }
 
+    /// Get the repeat value.
     pub fn get_repeat(&self) -> &Repeat {
         &self.repeat
     }
 
+    /// Get the node which is repeated.
     pub fn get_node(&self) -> &Node {
         &self.node
     }
 }
 
+/// An optionally lower and optionally upper bounded repeat value.
+/// Both bounds are inclusive.
 #[derive(Debug, Clone, Eq, PartialEq, Default)]
 pub struct Repeat {
     min: Option<usize>,
@@ -87,42 +138,63 @@ pub struct Repeat {
 }
 
 impl Repeat {
-    pub fn new() -> Self {
+    /// Create an unbounded repeat value, i.e. `*`.
+    pub fn unbounded() -> Self {
         Self {
             min: None,
             max: None,
         }
     }
 
+    /// Create a specific repeat value by providing both lower and upper bound.
     pub fn with(min: Option<usize>, max: Option<usize>) -> Self {
         Self { min, max }
     }
 
+    /// Get the lower bound.
     pub fn get_min(&self) -> Option<usize> {
         self.min
     }
 
+    /// Get the upper bound.
     pub fn get_max(&self) -> Option<usize> {
         self.max
     }
 
+    /// Get the lower and upper bound as a tuple.
     pub fn get_min_max(&self) -> (Option<usize>, Option<usize>) {
         (self.min, self.max)
     }
 }
 
+/// A single value within a range (e.g. `%x01-ff`)
+/// or a terminal defined by a series of values (e.g. `%x0f.f1.ce`).
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub enum Range {
-    OneOf(Vec<u32>), // FIXME: out of spec, but useful?
+pub enum NumVal {
+    Terminal(Vec<u32>),
     Range(u32, u32),
+} // FIXME: u32 may be out of spec. But it is useful for UTF-8.
+
+impl NumVal {
+    /// Create a terminal from a series of values.
+    /// See ABNF's terminal notation, e.g. `%c##.##.##`.
+    pub fn terminal(alts: &[u32]) -> NumVal {
+        NumVal::Terminal(alts.to_owned())
+    }
+
+    /// Create an alternation from a lower and upper bound (both inclusive).
+    /// See ABNF's "value range alternatives", e.g. `%c##-##`.
+    pub fn range(from: u32, to: u32) -> NumVal {
+        NumVal::Range(from, to)
+    }
 }
 
 impl fmt::Display for Rule {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.name)?;
-        match self.definition {
-            Definition::Basic => write!(f, " = ")?,
-            Definition::Incremental => write!(f, " =/ ")?,
+        match self.kind {
+            Kind::Basic => write!(f, " = ")?,
+            Kind::Incremental => write!(f, " =/ ")?,
         }
         write!(f, "{}", self.node)
     }
@@ -175,7 +247,7 @@ impl fmt::Display for Node {
             Node::NumVal(range) => {
                 write!(f, "%x")?;
                 match range {
-                    Range::OneOf(allowed) => {
+                    NumVal::Terminal(allowed) => {
                         if let Some((last, elements)) = allowed.split_last() {
                             for item in elements {
                                 write!(f, "{:02X}.", item)?;
@@ -183,7 +255,7 @@ impl fmt::Display for Node {
                             write!(f, "{:02X}", last)?;
                         }
                     }
-                    Range::Range(from, to) => {
+                    NumVal::Range(from, to) => {
                         write!(f, "{:02X}-{:02X}", from, to)?;
                     }
                 }
@@ -200,7 +272,6 @@ impl fmt::Display for Node {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::*;
 
     #[test]
     fn test_display_rule() {
@@ -210,7 +281,7 @@ mod test {
         assert_eq!(expected, got);
 
         let test =
-            Rule::new("rule", Node::Rulename("A".into())).definition(Definition::Incremental);
+            Rule::incremental("rule", Node::Rulename("A".into()));
         let expected = "rule =/ A";
         let got = test.to_string();
         assert_eq!(expected, got);
@@ -220,28 +291,6 @@ mod test {
     fn test_display_prose() {
         let rule = Rule::new("rule", Node::ProseVal("test".into()));
         assert_eq!("rule = <test>", rule.to_string());
-    }
-
-    #[test]
-    fn test_error_handling() {
-        // This test is only a reminder to implement nice error reporting.
-        use nom::{
-            error::{convert_error, VerboseError},
-            Err as NomErr,
-        };
-
-        let data = "a = *b\n\n\nb = *x";
-
-        match rulelist::<VerboseError<&str>>(&data) {
-            Ok((rem, rule)) => println!("Parsed: {:?}\n Remaining: {:02X?}", rule, rem),
-            Err(err) => match err {
-                NomErr::Incomplete(needed) => println!("Incomplete: {:?}", needed),
-                NomErr::Error(e) => println!("Error: {}", convert_error(&data, e)),
-                NomErr::Failure(e) => println!("Failure: {}", convert_error(&data, e)),
-            },
-        }
-
-        panic!("not done");
     }
 
     #[test]

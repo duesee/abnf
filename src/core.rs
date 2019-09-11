@@ -1,4 +1,5 @@
 #![allow(non_snake_case)]
+#![allow(dead_code)]
 
 //!
 //! Parsing of ABNF Core Rules
@@ -9,7 +10,6 @@
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::character::complete::{char, one_of};
-use nom::combinator::map;
 use nom::combinator::recognize;
 use nom::error::{ErrorKind, ParseError};
 use nom::multi::many0;
@@ -177,34 +177,30 @@ pub fn is_WSP(c: char) -> bool {
     }
 }
 
-/*
 #[cfg(test)]
 mod tests {
     use super::*;
+    use nom::error::VerboseError;
 
     #[test]
     fn test_BIT() {
-        assert_eq!(BIT("100"), Ok(("00", '1')));
-        assert_eq!(BIT("010"), Ok(("10", '0')));
-        assert!(BIT("").is_err());
-        assert!(BIT("/").is_err());
-        assert!(BIT("2").is_err());
+        assert_eq!(BIT::<VerboseError<&str>>("100"), Ok(("00", '1')));
+        assert_eq!(BIT::<VerboseError<&str>>("010"), Ok(("10", '0')));
+        assert!(BIT::<VerboseError<&str>>("").is_err());
+        assert!(BIT::<VerboseError<&str>>("/").is_err());
+        assert!(BIT::<VerboseError<&str>>("2").is_err());
     }
 
     #[test]
     fn test_HEXDIG() {
-        assert_eq!(HEXDIG("FaA"), Ok(("aA", 'F')));
-
-        assert_eq!(HEXDIG("0aA"), Ok(("aA", '0')));
-
-        assert!(HEXDIG("").is_err());
-        assert!(HEXDIG("/").is_err());
-        assert!(HEXDIG(":").is_err());
-        assert!(HEXDIG("`").is_err());
-        assert!(HEXDIG("g").is_err());
-        assert!(HEXDIG("@").is_err());
-        assert!(HEXDIG("G").is_err());
+        assert_eq!(HEXDIG::<VerboseError<&str>>("FaA"), Ok(("aA", 'F')));
+        assert_eq!(HEXDIG::<VerboseError<&str>>("0aA"), Ok(("aA", '0')));
+        assert!(HEXDIG::<VerboseError<&str>>("").is_err());
+        assert!(HEXDIG::<VerboseError<&str>>("/").is_err());
+        assert!(HEXDIG::<VerboseError<&str>>(":").is_err());
+        assert!(HEXDIG::<VerboseError<&str>>("`").is_err());
+        assert!(HEXDIG::<VerboseError<&str>>("g").is_err());
+        assert!(HEXDIG::<VerboseError<&str>>("@").is_err());
+        assert!(HEXDIG::<VerboseError<&str>>("G").is_err());
     }
-
 }
-*/
