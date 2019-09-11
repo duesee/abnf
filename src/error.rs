@@ -36,11 +36,11 @@
 use std::fmt;
 
 /// A generic parsing error.
-pub struct ParsingError {
+pub struct ParseError {
     pub(crate) message: String,
 }
 
-impl fmt::Display for ParsingError {
+impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         write!(f, "{}", self.message)
     }

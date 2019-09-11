@@ -36,7 +36,7 @@ use crate::{
         rulelist as rulelist_internal,
     },
     types::Rule,
-    error::ParsingError,
+    error::ParseError,
 };
 
 use nom::{
@@ -60,7 +60,7 @@ use nom::{
 ///     Err(error) => eprintln!("{}", error),
 /// }
 /// ```
-pub fn rulelist(input: &str) -> Result<Vec<Rule>, ParsingError> {
+pub fn rulelist(input: &str) -> Result<Vec<Rule>, ParseError> {
     match all_consuming(rulelist_internal::<VerboseError<&str>>)(input) {
         Ok((remaining, rules)) => {
             assert!(remaining.is_empty());
@@ -68,7 +68,7 @@ pub fn rulelist(input: &str) -> Result<Vec<Rule>, ParsingError> {
         }
         Err(error) => match error {
             nom::Err::Incomplete(_) => unreachable!(),
-            nom::Err::Error(e) | nom::Err::Failure(e) => Err(ParsingError { message: convert_error(input, e) }),
+            nom::Err::Error(e) | nom::Err::Failure(e) => Err(ParseError { message: convert_error(input, e) }),
         }
     }
 }
@@ -89,7 +89,7 @@ pub fn rulelist(input: &str) -> Result<Vec<Rule>, ParsingError> {
 ///    Err(error) => eprintln!("{}", error),
 /// }
 /// ```
-pub fn rule(input: &str) -> Result<Rule, ParsingError> {
+pub fn rule(input: &str) -> Result<Rule, ParseError> {
     match all_consuming(rule_internal::<VerboseError<&str>>)(input) {
         Ok((remaining, rule)) => {
             assert!(remaining.is_empty());
@@ -97,7 +97,7 @@ pub fn rule(input: &str) -> Result<Rule, ParsingError> {
         }
         Err(error) => match error {
             nom::Err::Incomplete(_) => unreachable!(),
-            nom::Err::Error(e) | nom::Err::Failure(e) => Err(ParsingError { message: convert_error(input, e) }),
+            nom::Err::Error(e) | nom::Err::Failure(e) => Err(ParseError { message: convert_error(input, e) }),
         }
     }
 }
