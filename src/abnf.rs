@@ -9,7 +9,7 @@ use crate::{core::*, types::*};
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_while};
 use nom::character::complete::char;
-use nom::combinator::{map, opt, cut };
+use nom::combinator::{cut, map, opt};
 use nom::error::ParseError;
 use nom::multi::{many0, many1};
 use nom::sequence::tuple;
@@ -403,10 +403,10 @@ pub fn prose_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str,
 mod tests {
     use super::*;
     //use crate::types::*;
+    use nom::error::VerboseError;
     use quickcheck::{Arbitrary, Gen};
     use quickcheck_macros::quickcheck;
     use rand::{distributions::Distribution, seq::SliceRandom, Rng};
-    use nom::error::VerboseError;
 
     struct RulenameDistribution;
 
@@ -531,7 +531,10 @@ mod tests {
                 "a = *\"-\"\n",
                 Rule::new(
                     "a",
-                    Node::Repetition(Repetition::new(Repeat::unbounded(), Node::CharVal("-".into()))),
+                    Node::Repetition(Repetition::new(
+                        Repeat::unbounded(),
+                        Node::CharVal("-".into()),
+                    )),
                 ),
             ),
         ];
@@ -612,7 +615,12 @@ mod tests {
 
     #[test]
     fn test_prose_val() {
-        assert_eq!("Hello, World!", prose_val::<VerboseError<&str>>("<Hello, World!>").unwrap().1)
+        assert_eq!(
+            "Hello, World!",
+            prose_val::<VerboseError<&str>>("<Hello, World!>")
+                .unwrap()
+                .1
+        )
     }
 
     #[test]

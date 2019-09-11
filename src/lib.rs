@@ -31,12 +31,9 @@ mod abnf;
 mod core;
 
 use crate::{
-    abnf::{
-        rule as rule_internal,
-        rulelist as rulelist_internal,
-    },
-    types::Rule,
+    abnf::{rule as rule_internal, rulelist as rulelist_internal},
     error::ParseError,
+    types::Rule,
 };
 
 use nom::{
@@ -68,8 +65,10 @@ pub fn rulelist(input: &str) -> Result<Vec<Rule>, ParseError> {
         }
         Err(error) => match error {
             nom::Err::Incomplete(_) => unreachable!(),
-            nom::Err::Error(e) | nom::Err::Failure(e) => Err(ParseError { message: convert_error(input, e) }),
-        }
+            nom::Err::Error(e) | nom::Err::Failure(e) => Err(ParseError {
+                message: convert_error(input, e),
+            }),
+        },
     }
 }
 
@@ -97,8 +96,10 @@ pub fn rule(input: &str) -> Result<Rule, ParseError> {
         }
         Err(error) => match error {
             nom::Err::Incomplete(_) => unreachable!(),
-            nom::Err::Error(e) | nom::Err::Failure(e) => Err(ParseError { message: convert_error(input, e) }),
-        }
+            nom::Err::Error(e) | nom::Err::Failure(e) => Err(ParseError {
+                message: convert_error(input, e),
+            }),
+        },
     }
 }
 

@@ -1,8 +1,8 @@
 use abnf::rulelist;
 
+use std::env::args;
 use std::fs::File;
 use std::io::Read;
-use std::env::args;
 
 fn main() -> std::io::Result<()> {
     let rules = {

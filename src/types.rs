@@ -280,8 +280,7 @@ mod test {
         let got = test.to_string();
         assert_eq!(expected, got);
 
-        let test =
-            Rule::incremental("rule", Node::Rulename("A".into()));
+        let test = Rule::incremental("rule", Node::Rulename("A".into()));
         let expected = "rule =/ A";
         let got = test.to_string();
         assert_eq!(expected, got);

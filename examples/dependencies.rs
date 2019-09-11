@@ -1,6 +1,9 @@
 //! This example shows how to use the `abnf` crate to create a dependency graph of `Rule`s.
 
-use abnf::{rulelist, types::{Node, Rule}};
+use abnf::{
+    rulelist,
+    types::{Node, Rule},
+};
 use std::env::args;
 use std::fs::File;
 use std::io::Read;
