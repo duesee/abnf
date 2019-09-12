@@ -1,5 +1,6 @@
 <p align="right">
-  <a href="https://docs.rs/abnf"><img src="https://img.shields.io/badge/documentation-docs.rs-informational" title="docs.rs"></a>
+  <a href="https://travis-ci.org/duesee/abnf"><img src="https://travis-ci.org/duesee/abnf.svg?branch=master" title="travis-ci.org"/></a>
+  <a href="https://docs.rs/abnf"><img src="https://img.shields.io/badge/documentation-docs.rs-informational" title="docs.rs"/></a>
 </p>
 
 # ABNF
@@ -7,8 +8,6 @@
 A parser for ABNF based on nom 5.
 
 ## Example
-
-This ...
 
 ```rust
 use abnf::rulelist;
@@ -18,7 +17,8 @@ match rulelist("a = b / c\nc = *(d e)\n") {
     Err(error) => eprintln!("{}", error),
 }
 ```
-... prints ...
+
+## Output
 
 ```
 [
