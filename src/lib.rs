@@ -108,6 +108,11 @@ mod test {
     use super::rulelist;
 
     #[test]
+    fn fail() {
+        panic!("fail")
+    }
+
+    #[test]
     fn test_error_handling() {
         let data = "a = *b\n\n\nb = *x";
         let error = rulelist(data).unwrap_err();
