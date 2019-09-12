@@ -4,7 +4,7 @@
 //! See https://tools.ietf.org/html/rfc5234#section-4
 //!
 
-    use crate::{core::*, types::*};
+use crate::{core::*, types::*};
 
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_while};
