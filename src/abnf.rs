@@ -7,7 +7,7 @@
 use crate::{core::*, types::*};
 
 use nom::branch::alt;
-use nom::bytes::complete::{tag, take_while, take_until};
+use nom::bytes::complete::{tag, take_until, take_while};
 use nom::character::complete::char;
 use nom::combinator::{cut, map, opt};
 use nom::error::ParseError;
