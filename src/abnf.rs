@@ -7,7 +7,7 @@
 use crate::{core::*, types::*};
 
 use nom::branch::alt;
-use nom::bytes::complete::{tag, take_while};
+use nom::bytes::complete::{tag, take_while, take_until};
 use nom::character::complete::char;
 use nom::combinator::{cut, map, opt};
 use nom::error::ParseError;
@@ -116,9 +116,8 @@ pub fn c_nl<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, (), 
 
 /// comment = ";" *(WSP / VCHAR) CRLF
 pub fn comment<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, (), E> {
-    let valid = |x| is_WSP(x) || is_VCHAR(x);
-
-    let (input, (_, _, _)) = tuple((char(';'), take_while(valid), CRLF))(input)?;
+    let (input, _) = char(';')(input)?;
+    let (input, _) = take_until("\n")(input)?;
 
     Ok((input, ()))
 }
@@ -681,5 +680,15 @@ mod tests {
             )),
         );
         println!("{}", rule);
+    }
+
+    #[test]
+    fn test_comment_unicode() {
+        let (_, _) = rule::<VerboseError<&str>>("a = A / B;\n").unwrap();
+        let (_, _) = rule::<VerboseError<&str>>("a = A / B ;\n").unwrap();
+        let (_, _) = rule::<VerboseError<&str>>("a = A / B ;\n").unwrap();
+        let (_, _) = rule::<VerboseError<&str>>("a = A / B ; xxx\n").unwrap();
+        let (_, _) = rule::<VerboseError<&str>>("a = A / B ; xxx\n").unwrap();
+        let (_, _) = rule::<VerboseError<&str>>("a = A / B ; x²x²³¼\n").unwrap();
     }
 }
