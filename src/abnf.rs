@@ -685,11 +685,38 @@ mod tests {
 
     #[test]
     fn test_comment_unicode() {
-        let (_, _) = rule::<VerboseError<&str>>("a = A / B;\n").unwrap();
-        let (_, _) = rule::<VerboseError<&str>>("a = A / B ;\n").unwrap();
-        let (_, _) = rule::<VerboseError<&str>>("a = A / B ;\n").unwrap();
-        let (_, _) = rule::<VerboseError<&str>>("a = A / B ; xxx\n").unwrap();
-        let (_, _) = rule::<VerboseError<&str>>("a = A / B ; xxx\n").unwrap();
-        let (_, _) = rule::<VerboseError<&str>>("a = A / B ; x²x²³¼\n").unwrap();
+        let (remaining, _) = comment::<VerboseError<&str>>(";a\n").unwrap();
+        assert_eq!(remaining, "");
+        let (remaining, _) = comment::<VerboseError<&str>>("; a\n").unwrap();
+        assert_eq!(remaining, "");
+        let (remaining, _) = comment::<VerboseError<&str>>("; a \n").unwrap();
+        assert_eq!(remaining, "");
+        let (remaining, _) = comment::<VerboseError<&str>>("; a \r\n").unwrap();
+        assert_eq!(remaining, "");
+        let (remaining, _) = comment::<VerboseError<&str>>(";²\n").unwrap();
+        assert_eq!(remaining, "");
+        let (remaining, _) = comment::<VerboseError<&str>>("; ²\n").unwrap();
+        assert_eq!(remaining, "");
+        let (remaining, _) = comment::<VerboseError<&str>>("; ² \n").unwrap();
+        assert_eq!(remaining, "");
+        let (remaining, _) = comment::<VerboseError<&str>>("; ² \r\n").unwrap();
+        assert_eq!(remaining, "");
+
+        let (remaining, _) = comment::<VerboseError<&str>>(";a\nx").unwrap();
+        assert_eq!(remaining, "x");
+        let (remaining, _) = comment::<VerboseError<&str>>("; a\nx").unwrap();
+        assert_eq!(remaining, "x");
+        let (remaining, _) = comment::<VerboseError<&str>>("; a \nx").unwrap();
+        assert_eq!(remaining, "x");
+        let (remaining, _) = comment::<VerboseError<&str>>("; a \r\nx").unwrap();
+        assert_eq!(remaining, "x");
+        let (remaining, _) = comment::<VerboseError<&str>>(";²\nx").unwrap();
+        assert_eq!(remaining, "x");
+        let (remaining, _) = comment::<VerboseError<&str>>("; ²\nx").unwrap();
+        assert_eq!(remaining, "x");
+        let (remaining, _) = comment::<VerboseError<&str>>("; ² \nx").unwrap();
+        assert_eq!(remaining, "x");
+        let (remaining, _) = comment::<VerboseError<&str>>("; ² \r\nx").unwrap();
+        assert_eq!(remaining, "x");
     }
 }
