@@ -118,6 +118,7 @@ pub fn c_nl<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, (), 
 pub fn comment<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, (), E> {
     let (input, _) = char(';')(input)?;
     let (input, _) = take_until("\n")(input)?;
+    let (input, _) = char('\n')(input)?;
 
     Ok((input, ()))
 }
