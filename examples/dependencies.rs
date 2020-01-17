@@ -45,18 +45,27 @@ impl Dependencies for Node {
     }
 }
 
-fn main() -> std::io::Result<()> {
-    let rules = {
-        let mut file = File::open(args().nth(1).expect("no file given"))?;
-        let mut data = String::new();
-        file.read_to_string(&mut data)?;
+fn print_gml(rules: Vec<Rule>) {
+    println!("graph [");
 
-        rulelist(&data).unwrap_or_else(|e| {
-            println!("{}", e);
-            std::process::exit(1);
-        })
-    };
+    for rule in rules.iter() {
+        println!(
+            "\tnode [id \"{}\" label \"{}\"]",
+            rule.get_name(),
+            rule.get_name()
+        );
+    }
 
+    for rule in rules.iter() {
+        for dep in rule.calc_dependencies() {
+            println!("\tedge [source \"{}\" target \"{}\"]", rule.get_name(), dep);
+        }
+    }
+
+    println!("]");
+}
+
+fn print_gv(rules: Vec<Rule>) {
     println!("digraph {{");
     println!("\tcompound=true;");
     println!("\toverlap=scalexy;");
@@ -73,6 +82,29 @@ fn main() -> std::io::Result<()> {
         println!("\t{} -> {{{}}}", name, deps.join(" "));
     }
     println!("}}");
+}
+
+fn main() -> std::io::Result<()> {
+    let rules = {
+        let data =
+            std::fs::read_to_string(args().nth(1).expect("USAGE: dependencies file [gml|gv]"))?;
+
+        rulelist(&data).unwrap_or_else(|e| {
+            println!("{}", e);
+            std::process::exit(1);
+        })
+    };
+
+    let format = args().nth(2).unwrap_or(String::from("gml"));
+
+    match format.as_ref() {
+        "gml" => print_gml(rules),
+        "gv" => print_gv(rules),
+        other => {
+            eprintln!("Unknown format \"{}\". Try \"gml\" or \"gv\".", other);
+            std::process::exit(1);
+        }
+    }
 
     Ok(())
 }
