@@ -224,7 +224,7 @@ pub fn element<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, N
         map(group, |e| e),
         map(option, |e| e),
         map(char_val, |str| Node::CharVal(str.to_owned())),
-        map(num_val, Node::NumVal),
+        map(num_val, Node::Terminal),
         map(prose_val, |str| Node::ProseVal(str.to_owned())),
     ));
 
@@ -278,7 +278,7 @@ pub fn char_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, 
 }
 
 /// num-val = "%" (bin-val / dec-val / hex-val)
-pub fn num_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, NumVal, E> {
+pub fn num_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Terminal, E> {
     let parser = tuple((char('%'), alt((bin_val, dec_val, hex_val))));
 
     let (input, (_, range)) = parser(input)?;
@@ -289,7 +289,7 @@ pub fn num_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, N
 /// bin-val = "b" 1*BIT [ 1*("." 1*BIT) / ("-" 1*BIT) ]
 ///            ; series of concatenated bit values
 ///            ;  or single ONEOF range
-pub fn bin_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, NumVal, E> {
+pub fn bin_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Terminal, E> {
     let (input, _) = char('b')(input)?;
 
     let (input, start) = map(many1(BIT), |val| {
@@ -305,10 +305,10 @@ pub fn bin_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, N
                         .expect("should never happen"),
                 )
             }
-            NumVal::Terminal(all)
+            Terminal::Sequence(all)
         }),
         map(tuple((char('-'), many1(BIT))), |(_, end)| {
-            NumVal::Range(
+            Terminal::Range(
                 start,
                 u32::from_str_radix(&end.into_iter().collect::<String>(), 2)
                     .expect("should never happen"),
@@ -319,12 +319,12 @@ pub fn bin_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, N
     if let Some(r) = compl {
         Ok((input, r))
     } else {
-        Ok((input, NumVal::Terminal(vec![start])))
+        Ok((input, Terminal::Sequence(vec![start])))
     }
 }
 
 /// dec-val = "d" 1*DIGIT [ 1*("." 1*DIGIT) / ("-" 1*DIGIT) ]
-pub fn dec_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, NumVal, E> {
+pub fn dec_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Terminal, E> {
     let (input, _) = char('d')(input)?;
 
     let (input, start) = map(many1(DIGIT), |val| {
@@ -337,10 +337,10 @@ pub fn dec_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, N
             for (_, val) in pairs.into_iter() {
                 all.push(u32::from_str_radix(&val.into_iter().collect::<String>(), 10).unwrap())
             }
-            NumVal::Terminal(all)
+            Terminal::Sequence(all)
         }),
         map(tuple((char('-'), many1(DIGIT))), |(_, end)| {
-            NumVal::Range(
+            Terminal::Range(
                 start,
                 u32::from_str_radix(&end.into_iter().collect::<String>(), 10).unwrap(),
             )
@@ -350,12 +350,12 @@ pub fn dec_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, N
     if let Some(r) = compl {
         Ok((input, r))
     } else {
-        Ok((input, NumVal::Terminal(vec![start])))
+        Ok((input, Terminal::Sequence(vec![start])))
     }
 }
 
 /// hex-val = "x" 1*HEXDIG [ 1*("." 1*HEXDIG) / ("-" 1*HEXDIG) ]
-pub fn hex_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, NumVal, E> {
+pub fn hex_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Terminal, E> {
     let (input, _) = char('x')(input)?;
 
     let (input, start) = map(many1(HEXDIG), |val| {
@@ -368,10 +368,10 @@ pub fn hex_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, N
             for (_, val) in pairs.into_iter() {
                 all.push(u32::from_str_radix(&val.into_iter().collect::<String>(), 16).unwrap())
             }
-            NumVal::Terminal(all)
+            Terminal::Sequence(all)
         }),
         map(tuple((char('-'), many1(HEXDIG))), |(_, end)| {
-            NumVal::Range(
+            Terminal::Range(
                 start,
                 u32::from_str_radix(&end.into_iter().collect::<String>(), 16).unwrap(),
             )
@@ -381,7 +381,7 @@ pub fn hex_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, N
     if let Some(r) = compl {
         Ok((input, r))
     } else {
-        Ok((input, NumVal::Terminal(vec![start])))
+        Ok((input, Terminal::Sequence(vec![start])))
     }
 }
 
@@ -449,7 +449,7 @@ mod tests {
                 4 => Node::Group(Box::<Node>::arbitrary(g)),
                 5 => Node::Optional(Box::<Node>::arbitrary(g)),
                 6 => Node::CharVal(name), // TODO
-                7 => Node::NumVal(NumVal::arbitrary(g)),
+                7 => Node::Terminal(Terminal::arbitrary(g)),
                 8 => Node::ProseVal(name), // TODO
                 _ => unreachable!(),
             }
@@ -469,11 +469,11 @@ mod tests {
         }
     }
 
-    impl Arbitrary for NumVal {
+    impl Arbitrary for Terminal {
         fn arbitrary<G: Gen>(g: &mut G) -> Self {
-            use super::NumVal::*;
+            use super::Terminal::*;
             [
-                Terminal(Vec::<u32>::arbitrary(g)),
+                Sequence(Vec::<u32>::arbitrary(g)),
                 Range(u32::arbitrary(g), u32::arbitrary(g)),
             ]
             .choose(g)
@@ -571,7 +571,7 @@ mod tests {
 
     #[test]
     fn test_num_val() {
-        let expected = NumVal::Terminal(vec![0x00, 0x0A, 0xff]);
+        let expected = Terminal::Sequence(vec![0x00, 0x0A, 0xff]);
         let got1 = num_val::<VerboseError<&str>>("%b0.1010.11111111");
         let got2 = num_val::<VerboseError<&str>>("%d0.10.255");
         let got3 = num_val::<VerboseError<&str>>("%x0.A.ff");
@@ -582,33 +582,33 @@ mod tests {
 
     #[test]
     fn test_bin_val() {
-        let expected = NumVal::Terminal(vec![0x00, 0x03, 0xff]);
+        let expected = Terminal::Sequence(vec![0x00, 0x03, 0xff]);
         let got = bin_val::<VerboseError<&str>>("b00.11.11111111");
         assert_eq!(expected, got.unwrap().1);
 
-        let expected = NumVal::Range(0, 255);
+        let expected = Terminal::Range(0, 255);
         let got = bin_val::<VerboseError<&str>>("b00-11111111");
         assert_eq!(expected, got.unwrap().1)
     }
 
     #[test]
     fn test_dec_val() {
-        let expected = NumVal::Terminal(vec![0, 42, 255]);
+        let expected = Terminal::Sequence(vec![0, 42, 255]);
         let got = dec_val::<VerboseError<&str>>("d0.42.255");
         assert_eq!(expected, got.unwrap().1);
 
-        let expected = NumVal::Range(0, 255);
+        let expected = Terminal::Range(0, 255);
         let got = dec_val::<VerboseError<&str>>("d0-255");
         assert_eq!(expected, got.unwrap().1)
     }
 
     #[test]
     fn test_hex_val() {
-        let expected = NumVal::Terminal(vec![0xCA, 0xFF, 0xEE]);
+        let expected = Terminal::Sequence(vec![0xCA, 0xFF, 0xEE]);
         let got = hex_val::<VerboseError<&str>>("xCA.FF.EE");
         assert_eq!(expected, got.unwrap().1);
 
-        let expected = NumVal::Range(0, 255);
+        let expected = Terminal::Range(0, 255);
         let got = hex_val::<VerboseError<&str>>("x00-FF");
         assert_eq!(expected, got.unwrap().1)
     }

@@ -1,3 +1,6 @@
+#![warn(missing_docs)]
+#![warn(missing_doc_code_examples)]
+
 //! A crate for parsing ABNF definitions.
 //!
 //! This crate exposes two functions for now, `rulelist` and `rule`.

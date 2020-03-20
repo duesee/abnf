@@ -61,38 +61,14 @@ impl Rule {
         }
     }
 
-    #[deprecated(
-        note = "use `.name()` instead. `get_` prefix should not be used here (API guidelines)"
-    )]
-    /// Get the name of the rule.
-    pub fn get_name(&self) -> &str {
-        &self.name
-    }
-
     /// Get the name of the rule.
     pub fn name(&self) -> &str {
         &self.name
     }
 
-    #[deprecated(
-        note = "use `.node()` instead. `get_` prefix should not be used here (API guidelines)"
-    )]
-    /// Get the definition of the rule. Implemented as a composition of `Node`s.
-    pub fn get_node(&self) -> &Node {
-        &self.node
-    }
-
     /// Get the definition of the rule. Implemented as a composition of `Node`s.
     pub fn node(&self) -> &Node {
         &self.node
-    }
-
-    #[deprecated(
-        note = "use `.kind()` instead. `get_` prefix should not be used here (API guidelines)"
-    )]
-    /// Get the kind of the rule, i.e. `Basic` or `Incremental`.
-    pub fn get_kind(&self) -> Kind {
-        self.kind
     }
 
     /// Get the kind of the rule, i.e. `Basic` or `Incremental`.
@@ -121,7 +97,7 @@ pub enum Node {
     CharVal(String),
     /// A single value within a range (e.g. `%x01-ff`)
     /// or a terminal defined by a series of values (e.g. `%x0f.f1.ce`).
-    NumVal(NumVal),
+    Terminal(Terminal),
     /// A prose string, i.e. `<good luck implementing this>`.
     ProseVal(String),
 }
@@ -142,25 +118,9 @@ impl Repetition {
         }
     }
 
-    #[deprecated(
-        note = "use `.repeat()` instead. `get_` prefix should not be used here (API guidelines)"
-    )]
-    /// Get the repeat value.
-    pub fn get_repeat(&self) -> &Repeat {
-        &self.repeat
-    }
-
     /// Get the repeat value.
     pub fn repeat(&self) -> &Repeat {
         &self.repeat
-    }
-
-    #[deprecated(
-        note = "use `.node()` instead. `get_` prefix should not be used here (API guidelines)"
-    )]
-    /// Get the node which is repeated.
-    pub fn get_node(&self) -> &Node {
-        &self.node
     }
 
     /// Get the node which is repeated.
@@ -191,38 +151,14 @@ impl Repeat {
         Self { min, max }
     }
 
-    #[deprecated(
-        note = "use `.min()` instead. `get_` prefix should not be used here (API guidelines)"
-    )]
-    /// Get the lower bound.
-    pub fn get_min(&self) -> Option<usize> {
-        self.min
-    }
-
     /// Get the lower bound.
     pub fn min(&self) -> Option<usize> {
         self.min
     }
 
-    #[deprecated(
-        note = "use `.max()` instead. `get_` prefix should not be used here (API guidelines)"
-    )]
-    /// Get the upper bound.
-    pub fn get_max(&self) -> Option<usize> {
-        self.max
-    }
-
     /// Get the upper bound.
     pub fn max(&self) -> Option<usize> {
         self.max
-    }
-
-    #[deprecated(
-        note = "use `.min_max()` instead. `get_` prefix should not be used here (API guidelines)"
-    )]
-    /// Get the lower and upper bound as a tuple.
-    pub fn get_min_max(&self) -> (Option<usize>, Option<usize>) {
-        (self.min, self.max)
     }
 
     /// Get the lower and upper bound as a tuple.
@@ -231,25 +167,26 @@ impl Repeat {
     }
 }
 
-/// A single value within a range (e.g. `%x01-ff`)
-/// or a terminal defined by a series of values (e.g. `%x0f.f1.ce`).
+/// Terminal created by numerical values.
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub enum NumVal {
-    Terminal(Vec<u32>),
+pub enum Terminal {
+    /// A single value within a range (e.g. `%x01-ff`).
     Range(u32, u32),
+    /// A terminal defined by a concatenation of values (e.g. `%x0f.f1.ce`).
+    Sequence(Vec<u32>),
 } // FIXME: u32 may be out of spec. But it is useful for UTF-8.
 
-impl NumVal {
-    /// Create a terminal from a series of values.
-    /// See ABNF's terminal notation, e.g. `%c##.##.##`.
-    pub fn terminal(alts: &[u32]) -> NumVal {
-        NumVal::Terminal(alts.to_owned())
-    }
-
+impl Terminal {
     /// Create an alternation from a lower and upper bound (both inclusive).
     /// See ABNF's "value range alternatives", e.g. `%c##-##`.
-    pub fn range(from: u32, to: u32) -> NumVal {
-        NumVal::Range(from, to)
+    pub fn range(from: u32, to: u32) -> Terminal {
+        Terminal::Range(from, to)
+    }
+
+    /// Create a terminal from a series of values.
+    /// See ABNF's terminal notation, e.g. `%c##.##.##`.
+    pub fn terminal(alts: &[u32]) -> Terminal {
+        Terminal::Sequence(alts.to_owned())
     }
 }
 
@@ -308,10 +245,10 @@ impl fmt::Display for Node {
             Node::CharVal(str) => {
                 write!(f, "\"{}\"", str)?;
             }
-            Node::NumVal(range) => {
+            Node::Terminal(range) => {
                 write!(f, "%x")?;
                 match range {
-                    NumVal::Terminal(allowed) => {
+                    Terminal::Sequence(allowed) => {
                         if let Some((last, elements)) = allowed.split_last() {
                             for item in elements {
                                 write!(f, "{:02X}.", item)?;
@@ -319,7 +256,7 @@ impl fmt::Display for Node {
                             write!(f, "{:02X}", last)?;
                         }
                     }
-                    NumVal::Range(from, to) => {
+                    Terminal::Range(from, to) => {
                         write!(f, "{:02X}-{:02X}", from, to)?;
                     }
                 }
