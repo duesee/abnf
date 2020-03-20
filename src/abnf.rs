@@ -223,9 +223,9 @@ pub fn element<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, N
         map(rulename, Node::Rulename),
         map(group, |e| e),
         map(option, |e| e),
-        map(char_val, |str| Node::CharVal(str.to_owned())),
-        map(num_val, Node::Terminal),
-        map(prose_val, |str| Node::ProseVal(str.to_owned())),
+        map(char_val, |str| Node::String(str.to_owned())),
+        map(num_val, Node::TerminalValues),
+        map(prose_val, |str| Node::Prose(str.to_owned())),
     ));
 
     let (input, val) = parser(input)?;
@@ -278,7 +278,7 @@ pub fn char_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, 
 }
 
 /// num-val = "%" (bin-val / dec-val / hex-val)
-pub fn num_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Terminal, E> {
+pub fn num_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, TerminalValues, E> {
     let parser = tuple((char('%'), alt((bin_val, dec_val, hex_val))));
 
     let (input, (_, range)) = parser(input)?;
@@ -289,7 +289,7 @@ pub fn num_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, T
 /// bin-val = "b" 1*BIT [ 1*("." 1*BIT) / ("-" 1*BIT) ]
 ///            ; series of concatenated bit values
 ///            ;  or single ONEOF range
-pub fn bin_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Terminal, E> {
+pub fn bin_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, TerminalValues, E> {
     let (input, _) = char('b')(input)?;
 
     let (input, start) = map(many1(BIT), |val| {
@@ -305,10 +305,10 @@ pub fn bin_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, T
                         .expect("should never happen"),
                 )
             }
-            Terminal::Sequence(all)
+            TerminalValues::Concatenation(all)
         }),
         map(tuple((char('-'), many1(BIT))), |(_, end)| {
-            Terminal::Range(
+            TerminalValues::Range(
                 start,
                 u32::from_str_radix(&end.into_iter().collect::<String>(), 2)
                     .expect("should never happen"),
@@ -319,12 +319,12 @@ pub fn bin_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, T
     if let Some(r) = compl {
         Ok((input, r))
     } else {
-        Ok((input, Terminal::Sequence(vec![start])))
+        Ok((input, TerminalValues::Concatenation(vec![start])))
     }
 }
 
 /// dec-val = "d" 1*DIGIT [ 1*("." 1*DIGIT) / ("-" 1*DIGIT) ]
-pub fn dec_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Terminal, E> {
+pub fn dec_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, TerminalValues, E> {
     let (input, _) = char('d')(input)?;
 
     let (input, start) = map(many1(DIGIT), |val| {
@@ -337,10 +337,10 @@ pub fn dec_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, T
             for (_, val) in pairs.into_iter() {
                 all.push(u32::from_str_radix(&val.into_iter().collect::<String>(), 10).unwrap())
             }
-            Terminal::Sequence(all)
+            TerminalValues::Concatenation(all)
         }),
         map(tuple((char('-'), many1(DIGIT))), |(_, end)| {
-            Terminal::Range(
+            TerminalValues::Range(
                 start,
                 u32::from_str_radix(&end.into_iter().collect::<String>(), 10).unwrap(),
             )
@@ -350,12 +350,12 @@ pub fn dec_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, T
     if let Some(r) = compl {
         Ok((input, r))
     } else {
-        Ok((input, Terminal::Sequence(vec![start])))
+        Ok((input, TerminalValues::Concatenation(vec![start])))
     }
 }
 
 /// hex-val = "x" 1*HEXDIG [ 1*("." 1*HEXDIG) / ("-" 1*HEXDIG) ]
-pub fn hex_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Terminal, E> {
+pub fn hex_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, TerminalValues, E> {
     let (input, _) = char('x')(input)?;
 
     let (input, start) = map(many1(HEXDIG), |val| {
@@ -368,10 +368,10 @@ pub fn hex_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, T
             for (_, val) in pairs.into_iter() {
                 all.push(u32::from_str_radix(&val.into_iter().collect::<String>(), 16).unwrap())
             }
-            Terminal::Sequence(all)
+            TerminalValues::Concatenation(all)
         }),
         map(tuple((char('-'), many1(HEXDIG))), |(_, end)| {
-            Terminal::Range(
+            TerminalValues::Range(
                 start,
                 u32::from_str_radix(&end.into_iter().collect::<String>(), 16).unwrap(),
             )
@@ -381,7 +381,7 @@ pub fn hex_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, T
     if let Some(r) = compl {
         Ok((input, r))
     } else {
-        Ok((input, Terminal::Sequence(vec![start])))
+        Ok((input, TerminalValues::Concatenation(vec![start])))
     }
 }
 
@@ -448,9 +448,9 @@ mod tests {
                 3 => Node::Rulename(name), // TODO
                 4 => Node::Group(Box::<Node>::arbitrary(g)),
                 5 => Node::Optional(Box::<Node>::arbitrary(g)),
-                6 => Node::CharVal(name), // TODO
-                7 => Node::Terminal(Terminal::arbitrary(g)),
-                8 => Node::ProseVal(name), // TODO
+                6 => Node::String(name), // TODO
+                7 => Node::TerminalValues(TerminalValues::arbitrary(g)),
+                8 => Node::Prose(name), // TODO
                 _ => unreachable!(),
             }
         }
@@ -469,11 +469,11 @@ mod tests {
         }
     }
 
-    impl Arbitrary for Terminal {
+    impl Arbitrary for TerminalValues {
         fn arbitrary<G: Gen>(g: &mut G) -> Self {
-            use super::Terminal::*;
+            use super::TerminalValues::*;
             [
-                Sequence(Vec::<u32>::arbitrary(g)),
+                Concatenation(Vec::<u32>::arbitrary(g)),
                 Range(u32::arbitrary(g), u32::arbitrary(g)),
             ]
             .choose(g)
@@ -485,57 +485,48 @@ mod tests {
     #[test]
     fn test_rules() {
         let tests = vec![
-            ("a = A\n", Rule::new("a", Node::Rulename("A".into()))),
+            ("a = A\n", Rule::new("a", Node::rulename("A"))),
             (
                 "B = A / B\n",
                 Rule::new(
                     "B",
-                    Node::Alternation(vec![Node::Rulename("A".into()), Node::Rulename("B".into())]),
+                    Node::alternation(&[Node::rulename("A"), Node::rulename("B")]),
                 ),
             ),
             (
                 "c = (A / B)\n",
                 Rule::new(
                     "c",
-                    Node::Group(Box::new(Node::Alternation(vec![
-                        Node::Rulename("A".into()),
-                        Node::Rulename("B".into()),
-                    ]))),
+                    Node::group(Node::alternation(&[
+                        Node::rulename("A"),
+                        Node::rulename("B"),
+                    ])),
                 ),
             ),
             (
                 "D = <this is prose>\n",
-                Rule::new("D", Node::ProseVal("this is prose".into())),
+                Rule::new("D", Node::prose("this is prose")),
             ),
             (
                 "xXx = ((A B))\n",
                 Rule::new(
                     "xXx",
-                    Node::Group(Box::new(Node::Group(Box::new(Node::Concatenation(vec![
-                        Node::Rulename("A".into()),
-                        Node::Rulename("B".into()),
-                    ]))))),
+                    Node::group(Node::group(Node::concatenation(&[
+                        Node::rulename("A"),
+                        Node::rulename("B"),
+                    ]))),
                 ),
             ),
             (
                 "a = 0*15\"-\"\n",
                 Rule::new(
                     "a",
-                    Node::Repetition(Repetition::new(
-                        Repeat::with(Some(0), Some(15)),
-                        Node::CharVal("-".into()),
-                    )),
+                    Node::repeat(Repeat::with(Some(0), Some(15)), Node::string("-")),
                 ),
             ),
             (
                 "a = *\"-\"\n",
-                Rule::new(
-                    "a",
-                    Node::Repetition(Repetition::new(
-                        Repeat::unbounded(),
-                        Node::CharVal("-".into()),
-                    )),
-                ),
+                Rule::new("a", Node::repeat(Repeat::unbounded(), Node::string("-"))),
             ),
         ];
 
@@ -571,7 +562,7 @@ mod tests {
 
     #[test]
     fn test_num_val() {
-        let expected = Terminal::Sequence(vec![0x00, 0x0A, 0xff]);
+        let expected = TerminalValues::Concatenation(vec![0x00, 0x0A, 0xff]);
         let got1 = num_val::<VerboseError<&str>>("%b0.1010.11111111");
         let got2 = num_val::<VerboseError<&str>>("%d0.10.255");
         let got3 = num_val::<VerboseError<&str>>("%x0.A.ff");
@@ -582,33 +573,33 @@ mod tests {
 
     #[test]
     fn test_bin_val() {
-        let expected = Terminal::Sequence(vec![0x00, 0x03, 0xff]);
+        let expected = TerminalValues::Concatenation(vec![0x00, 0x03, 0xff]);
         let got = bin_val::<VerboseError<&str>>("b00.11.11111111");
         assert_eq!(expected, got.unwrap().1);
 
-        let expected = Terminal::Range(0, 255);
+        let expected = TerminalValues::Range(0, 255);
         let got = bin_val::<VerboseError<&str>>("b00-11111111");
         assert_eq!(expected, got.unwrap().1)
     }
 
     #[test]
     fn test_dec_val() {
-        let expected = Terminal::Sequence(vec![0, 42, 255]);
+        let expected = TerminalValues::Concatenation(vec![0, 42, 255]);
         let got = dec_val::<VerboseError<&str>>("d0.42.255");
         assert_eq!(expected, got.unwrap().1);
 
-        let expected = Terminal::Range(0, 255);
+        let expected = TerminalValues::Range(0, 255);
         let got = dec_val::<VerboseError<&str>>("d0-255");
         assert_eq!(expected, got.unwrap().1)
     }
 
     #[test]
     fn test_hex_val() {
-        let expected = Terminal::Sequence(vec![0xCA, 0xFF, 0xEE]);
+        let expected = TerminalValues::Concatenation(vec![0xCA, 0xFF, 0xEE]);
         let got = hex_val::<VerboseError<&str>>("xCA.FF.EE");
         assert_eq!(expected, got.unwrap().1);
 
-        let expected = Terminal::Range(0, 255);
+        let expected = TerminalValues::Range(0, 255);
         let got = hex_val::<VerboseError<&str>>("x00-FF");
         assert_eq!(expected, got.unwrap().1)
     }
@@ -626,15 +617,12 @@ mod tests {
     #[test]
     fn test_definition() {
         let tests = vec![
-            (
-                "a =/ A\n",
-                Rule::incremental("a", Node::Rulename("A".into())),
-            ),
+            ("a =/ A\n", Rule::incremental("a", Node::rulename("A"))),
             (
                 "B =/ A / B\n",
                 Rule::incremental(
                     "B",
-                    Node::Alternation(vec![Node::Rulename("A".into()), Node::Rulename("B".into())]),
+                    Node::alternation(&[Node::rulename("A"), Node::rulename("B")]),
                 ),
             ),
         ];
@@ -672,13 +660,10 @@ mod tests {
         // FIXME: This test can not fail currently.
         let rule = Rule::new(
             "rule",
-            Node::Repetition(Repetition::new(
+            Node::repeat(
                 Repeat::with(Some(1), Some(12)),
-                Node::Repetition(Repetition::new(
-                    Repeat::with(Some(1), Some(2)),
-                    Node::ProseVal("test".into()),
-                )),
-            )),
+                Node::repeat(Repeat::with(Some(1), Some(2)), Node::prose("test")),
+            ),
         );
         println!("{}", rule);
     }

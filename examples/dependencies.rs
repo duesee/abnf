@@ -38,7 +38,7 @@ impl Dependencies for Node {
             Node::Group(node) | Node::Optional(node) => node.calc_dependencies(),
             Node::Repetition(repr) => repr.node().calc_dependencies(),
             Node::Rulename(name) => vec![name.to_owned()],
-            Node::Terminal(_) | Node::CharVal(_) | Node::ProseVal(_) => vec![],
+            Node::TerminalValues(_) | Node::String(_) | Node::Prose(_) => vec![],
         }
     }
 }

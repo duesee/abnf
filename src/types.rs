@@ -1,21 +1,16 @@
 //! This module contains a collection of all types in the ABNF crate.
-//! The types can be used to manually construct new rules.
-//!
-//! **Note**: currently you need to take care of some internals and
-//! use specific containers to construct the variants (e.g. `Vec` for an `Alternation` and `String` for a `Rulename`).
-//!
-//! This crate will provide a better abstraction in the future.
+//! The types can also be used to manually construct new rules.
 //!
 //! # Example
 //!
 //! ```
 //! use abnf::types::*;
 //!
-//! let rule = Rule::new("test", Node::Alternation(vec![
-//!     Node::Rulename("A".into()),
-//!     Node::Concatenation(vec![
-//!         Node::Rulename("B".into()),
-//!         Node::Rulename("C".into())
+//! let rule = Rule::new("test", Node::alternation(&[
+//!     Node::rulename("A"),
+//!     Node::concatenation(&[
+//!         Node::rulename("B"),
+//!         Node::rulename("C")
 //!     ])
 //! ]));
 //!
@@ -94,12 +89,67 @@ pub enum Node {
     /// An option, e.g. `[A]`.
     Optional(Box<Node>),
     /// A literal text string/terminal, e.g. `"http"`.
-    CharVal(String),
+    String(String),
     /// A single value within a range (e.g. `%x01-ff`)
     /// or a terminal defined by a series of values (e.g. `%x0f.f1.ce`).
-    Terminal(Terminal),
+    TerminalValues(TerminalValues),
     /// A prose string, i.e. `<good luck implementing this>`.
-    ProseVal(String),
+    Prose(String),
+}
+
+impl Node {
+    /// Constructor/Shorthand for Node::Alternation(...).
+    pub fn alternation(nodes: &[Node]) -> Node {
+        Node::Alternation(nodes.to_vec())
+    }
+
+    /// Constructor/Shorthand for Node::Concatenation(...).
+    pub fn concatenation(nodes: &[Node]) -> Node {
+        Node::Concatenation(nodes.to_vec())
+    }
+
+    /// Repeat a node.
+    pub fn repeat(repeat: Repeat, node: Node) -> Node {
+        Node::Repetition(Repetition {
+            repeat,
+            node: Box::new(node),
+        })
+    }
+
+    /// Constructor/Shorthand for Node::Repetition(...).
+    pub fn repetition(repetition: Repetition) -> Node {
+        Node::Repetition(repetition)
+    }
+
+    /// Constructor/Shorthand for Node::Rulename(...).
+    pub fn rulename<S: AsRef<str>>(name: S) -> Node {
+        Node::Rulename(name.as_ref().to_string())
+    }
+
+    /// Constructor/Shorthand for Node::Group(...).
+    pub fn group(node: Node) -> Node {
+        Node::Group(Box::new(node))
+    }
+
+    /// Constructor/Shorthand for Node::Optional(...).
+    pub fn optional(node: Node) -> Node {
+        Node::Optional(Box::new(node))
+    }
+
+    /// Constructor/Shorthand for Node::String(...).
+    pub fn string<S: AsRef<str>>(string: S) -> Node {
+        Node::String(string.as_ref().to_string())
+    }
+
+    /// Constructor/Shorthand for Node::TerminalValues(...).
+    pub fn terminal_values(terminal_values: TerminalValues) -> Node {
+        Node::TerminalValues(terminal_values)
+    }
+
+    /// Constructor/Shorthand for Node::Prose(...).
+    pub fn prose<S: AsRef<S>>(prose: S) -> Node {
+        Node::Prose(prose.as_ref().to_string())
+    }
 }
 
 /// Struct to bind a `Repeat` value to a `Node`.
@@ -169,24 +219,24 @@ impl Repeat {
 
 /// Terminal created by numerical values.
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub enum Terminal {
+pub enum TerminalValues {
     /// A single value within a range (e.g. `%x01-ff`).
     Range(u32, u32),
     /// A terminal defined by a concatenation of values (e.g. `%x0f.f1.ce`).
-    Sequence(Vec<u32>),
+    Concatenation(Vec<u32>),
 } // FIXME: u32 may be out of spec. But it is useful for UTF-8.
 
-impl Terminal {
+impl TerminalValues {
     /// Create an alternation from a lower and upper bound (both inclusive).
     /// See ABNF's "value range alternatives", e.g. `%c##-##`.
-    pub fn range(from: u32, to: u32) -> Terminal {
-        Terminal::Range(from, to)
+    pub fn range(from: u32, to: u32) -> TerminalValues {
+        TerminalValues::Range(from, to)
     }
 
     /// Create a terminal from a series of values.
     /// See ABNF's terminal notation, e.g. `%c##.##.##`.
-    pub fn terminal(alts: &[u32]) -> Terminal {
-        Terminal::Sequence(alts.to_owned())
+    pub fn sequence(alts: &[u32]) -> TerminalValues {
+        TerminalValues::Concatenation(alts.to_owned())
     }
 }
 
@@ -242,13 +292,13 @@ impl fmt::Display for Node {
             Node::Optional(node) => {
                 write!(f, "[{}]", node)?;
             }
-            Node::CharVal(str) => {
+            Node::String(str) => {
                 write!(f, "\"{}\"", str)?;
             }
-            Node::Terminal(range) => {
+            Node::TerminalValues(range) => {
                 write!(f, "%x")?;
                 match range {
-                    Terminal::Sequence(allowed) => {
+                    TerminalValues::Concatenation(allowed) => {
                         if let Some((last, elements)) = allowed.split_last() {
                             for item in elements {
                                 write!(f, "{:02X}.", item)?;
@@ -256,12 +306,12 @@ impl fmt::Display for Node {
                             write!(f, "{:02X}", last)?;
                         }
                     }
-                    Terminal::Range(from, to) => {
+                    TerminalValues::Range(from, to) => {
                         write!(f, "{:02X}-{:02X}", from, to)?;
                     }
                 }
             }
-            Node::ProseVal(str) => {
+            Node::Prose(str) => {
                 write!(f, "<{}>", str)?;
             }
         }
@@ -276,12 +326,12 @@ mod test {
 
     #[test]
     fn test_display_rule() {
-        let test = Rule::new("rule", Node::Rulename("A".into()));
+        let test = Rule::new("rule", Node::rulename("A"));
         let expected = "rule = A";
         let got = test.to_string();
         assert_eq!(expected, got);
 
-        let test = Rule::incremental("rule", Node::Rulename("A".into()));
+        let test = Rule::incremental("rule", Node::rulename("A"));
         let expected = "rule =/ A";
         let got = test.to_string();
         assert_eq!(expected, got);
@@ -289,7 +339,7 @@ mod test {
 
     #[test]
     fn test_display_prose() {
-        let rule = Rule::new("rule", Node::ProseVal("test".into()));
+        let rule = Rule::new("rule", Node::prose("test"));
         assert_eq!("rule = <test>", rule.to_string());
     }
 
