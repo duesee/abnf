@@ -5,8 +5,6 @@ use abnf::{
     types::{Node, Rule},
 };
 use std::env::args;
-use std::fs::File;
-use std::io::Read;
 
 /// A type which implements this trait is able to report on what rules it "depends" on.
 /// For simplicity, the dependencies are just a vector of strings here.
@@ -58,6 +56,10 @@ fn print_gml(rules: Vec<Rule>) {
 
     for rule in rules.iter() {
         for dep in rule.calc_dependencies() {
+            if ["ALPHA", "BIT", "CHAR", "CR", "CRLF", "CTL", "DIGIT", "DQUOTE", "HEXDIG", "HTAB", "LF", "LWSP", "OCTET", "SP", "VCHAR", "WSP"].contains(&&dep[..]) {
+                continue;
+            }
+
             println!("\tedge [source \"{}\" target \"{}\"]", rule.get_name(), dep);
         }
     }
