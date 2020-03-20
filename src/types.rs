@@ -147,7 +147,7 @@ impl Node {
     }
 
     /// Constructor/Shorthand for Node::Prose(...).
-    pub fn prose<S: AsRef<S>>(prose: S) -> Node {
+    pub fn prose<S: AsRef<str>>(prose: S) -> Node {
         Node::Prose(prose.as_ref().to_string())
     }
 }
