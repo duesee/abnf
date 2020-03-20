@@ -61,18 +61,42 @@ impl Rule {
         }
     }
 
+    #[deprecated(
+        note = "use `.name()` instead. `get_` prefix should not be used here (API guidelines)"
+    )]
     /// Get the name of the rule.
     pub fn get_name(&self) -> &str {
         &self.name
     }
 
+    /// Get the name of the rule.
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    #[deprecated(
+        note = "use `.node()` instead. `get_` prefix should not be used here (API guidelines)"
+    )]
     /// Get the definition of the rule. Implemented as a composition of `Node`s.
     pub fn get_node(&self) -> &Node {
         &self.node
     }
 
+    /// Get the definition of the rule. Implemented as a composition of `Node`s.
+    pub fn node(&self) -> &Node {
+        &self.node
+    }
+
+    #[deprecated(
+        note = "use `.kind()` instead. `get_` prefix should not be used here (API guidelines)"
+    )]
     /// Get the kind of the rule, i.e. `Basic` or `Incremental`.
     pub fn get_kind(&self) -> Kind {
+        self.kind
+    }
+
+    /// Get the kind of the rule, i.e. `Basic` or `Incremental`.
+    pub fn kind(&self) -> Kind {
         self.kind
     }
 }
@@ -118,13 +142,29 @@ impl Repetition {
         }
     }
 
+    #[deprecated(
+        note = "use `.repeat()` instead. `get_` prefix should not be used here (API guidelines)"
+    )]
     /// Get the repeat value.
     pub fn get_repeat(&self) -> &Repeat {
         &self.repeat
     }
 
+    /// Get the repeat value.
+    pub fn repeat(&self) -> &Repeat {
+        &self.repeat
+    }
+
+    #[deprecated(
+        note = "use `.node()` instead. `get_` prefix should not be used here (API guidelines)"
+    )]
     /// Get the node which is repeated.
     pub fn get_node(&self) -> &Node {
+        &self.node
+    }
+
+    /// Get the node which is repeated.
+    pub fn node(&self) -> &Node {
         &self.node
     }
 }
@@ -151,18 +191,42 @@ impl Repeat {
         Self { min, max }
     }
 
+    #[deprecated(
+        note = "use `.min()` instead. `get_` prefix should not be used here (API guidelines)"
+    )]
     /// Get the lower bound.
     pub fn get_min(&self) -> Option<usize> {
         self.min
     }
 
+    /// Get the lower bound.
+    pub fn min(&self) -> Option<usize> {
+        self.min
+    }
+
+    #[deprecated(
+        note = "use `.max()` instead. `get_` prefix should not be used here (API guidelines)"
+    )]
     /// Get the upper bound.
     pub fn get_max(&self) -> Option<usize> {
         self.max
     }
 
+    /// Get the upper bound.
+    pub fn max(&self) -> Option<usize> {
+        self.max
+    }
+
+    #[deprecated(
+        note = "use `.min_max()` instead. `get_` prefix should not be used here (API guidelines)"
+    )]
     /// Get the lower and upper bound as a tuple.
     pub fn get_min_max(&self) -> (Option<usize>, Option<usize>) {
+        (self.min, self.max)
+    }
+
+    /// Get the lower and upper bound as a tuple.
+    pub fn min_max(&self) -> (Option<usize>, Option<usize>) {
         (self.min, self.max)
     }
 }

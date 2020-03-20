@@ -15,7 +15,7 @@ trait Dependencies {
 
 impl Dependencies for Rule {
     fn calc_dependencies(&self) -> Vec<String> {
-        self.get_node().calc_dependencies()
+        self.node().calc_dependencies()
     }
 }
 
@@ -36,7 +36,7 @@ impl Dependencies for Node {
                 ret_val
             }
             Node::Group(node) | Node::Optional(node) => node.calc_dependencies(),
-            Node::Repetition(repr) => repr.get_node().calc_dependencies(),
+            Node::Repetition(repr) => repr.node().calc_dependencies(),
             Node::Rulename(name) => vec![name.to_owned()],
             Node::NumVal(_) | Node::CharVal(_) | Node::ProseVal(_) => vec![],
         }
@@ -47,20 +47,21 @@ fn print_gml(rules: Vec<Rule>) {
     println!("graph [");
 
     for rule in rules.iter() {
-        println!(
-            "\tnode [id \"{}\" label \"{}\"]",
-            rule.get_name(),
-            rule.get_name()
-        );
+        println!("\tnode [id \"{}\" label \"{}\"]", rule.name(), rule.name());
     }
 
     for rule in rules.iter() {
         for dep in rule.calc_dependencies() {
-            if ["ALPHA", "BIT", "CHAR", "CR", "CRLF", "CTL", "DIGIT", "DQUOTE", "HEXDIG", "HTAB", "LF", "LWSP", "OCTET", "SP", "VCHAR", "WSP"].contains(&&dep[..]) {
+            if [
+                "ALPHA", "BIT", "CHAR", "CR", "CRLF", "CTL", "DIGIT", "DQUOTE", "HEXDIG", "HTAB",
+                "LF", "LWSP", "OCTET", "SP", "VCHAR", "WSP",
+            ]
+            .contains(&&dep[..])
+            {
                 continue;
             }
 
-            println!("\tedge [source \"{}\" target \"{}\"]", rule.get_name(), dep);
+            println!("\tedge [source \"{}\" target \"{}\"]", rule.name(), dep);
         }
     }
 
@@ -74,7 +75,7 @@ fn print_gv(rules: Vec<Rule>) {
     println!("\tsplines=true;");
     println!("\tlayout=neato;\n");
     for rule in rules.iter() {
-        let name = rule.get_name().to_owned().replace("-", "_");
+        let name = rule.name().to_owned().replace("-", "_");
         let deps = rule
             .calc_dependencies()
             .iter()
