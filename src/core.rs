@@ -28,7 +28,7 @@ pub fn one<'a, E: ParseError<&'a str>, F: Fn(char) -> bool>(
     }
 
     let mut chars = input.chars();
-    let first = chars.nth(0).unwrap();
+    let first = chars.next().unwrap();
 
     if f(first) {
         Ok((chars.as_str(), first))
