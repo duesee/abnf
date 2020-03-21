@@ -30,7 +30,7 @@
 //! ```
 
 use crate::types::*;
-use abnf_core::*;
+use abnf_core::{complete::*, is_ALPHA, is_DIGIT};
 use nom::{
     branch::alt,
     bytes::complete::{tag, take_until, take_while},
@@ -199,7 +199,7 @@ fn c_wsp<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, (), E> 
 
 /// c-nl = comment / CRLF ; comment or newline
 fn c_nl<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, (), E> {
-    let parser = alt((comment, map(CRLF, |_| ())));
+    let parser = alt((comment, map(crlf_relaxed, |_| ())));
 
     let (input, _) = parser(input)?;
 
