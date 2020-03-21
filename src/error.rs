@@ -36,6 +36,7 @@
 use std::fmt;
 
 /// A generic parsing error.
+#[derive(Debug)]
 pub struct ParseError {
     pub(crate) message: String,
 }

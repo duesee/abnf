@@ -321,7 +321,7 @@ impl fmt::Display for Node {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
 
     #[test]
