@@ -62,3 +62,7 @@ match rulelist("a = b / c\nc = *(d e)\n") {
     },
 ]
 ```
+
+# License
+
+This crate is dual-licensed under Apache 2.0 and MIT terms.
