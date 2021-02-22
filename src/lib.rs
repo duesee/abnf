@@ -359,10 +359,7 @@ fn option<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Node, 
 ///             ; quoted string of SP and VCHAR
 ///             ;  without DQUOTE
 fn char_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &str, E> {
-    let char_val_chars = |x| match x {
-        '\x20'..='\x21' | '\x23'..='\x7E' => true,
-        _ => false,
-    };
+    let char_val_chars = |x| matches!(x, '\x20'..='\x21' | '\x23'..='\x7E');
 
     let (input, (_, val, _)) = tuple((DQUOTE, take_while(char_val_chars), DQUOTE))(input)?;
 
@@ -481,10 +478,7 @@ fn hex_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Termi
 ///             ; bracketed string of SP and VCHAR without angles
 ///             ; prose description, to be used as last resort
 fn prose_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &str, E> {
-    let prose_val_chars = |x| match x {
-        '\x20'..='\x3D' | '\x3F'..='\x7E' => true,
-        _ => false,
-    };
+    let prose_val_chars = |x| matches!(x, '\x20'..='\x3D' | '\x3F'..='\x7E');
 
     let (input, (_, val, _)) = tuple((char('<'), take_while(prose_val_chars), char('>')))(input)?;
 
