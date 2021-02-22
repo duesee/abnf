@@ -11,8 +11,8 @@ repository = "https://github.com/duesee/abnf"
 keywords = ["abnf", "parser", "nom"]
 
 [dependencies]
-nom = "5"
-abnf-core = "0.2"
+nom = "6"
+abnf-core = "0.4"
 
 [dev-dependencies]
 quickcheck        = "0.8"

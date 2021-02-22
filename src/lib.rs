@@ -112,7 +112,7 @@ pub fn rule(input: &str) -> Result<Rule, crate::error::ParseError> {
 /// ; Errata ID: 3076
 /// ```
 fn rulelist_internal<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Vec<Rule>, E> {
-    let parser = many1(alt((
+    let mut parser = many1(alt((
         map(rule_internal, Some),
         map(tuple((many0(WSP), c_nl)), |_| None),
     )));
@@ -135,7 +135,7 @@ fn rulelist_internal<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a 
 ///         ;  with white space
 /// ```
 fn rule_internal<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, Rule, E> {
-    let parser = tuple((rulename, defined_as, elements, cut(c_nl)));
+    let mut parser = tuple((rulename, defined_as, elements, cut(c_nl)));
 
     let (input, (name, definition, elements, _)) = parser(input)?;
 
@@ -164,7 +164,7 @@ fn rulename<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Stri
 ///               ; basic rules definition and
 ///               ;  incremental alternatives
 fn defined_as<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Kind, E> {
-    let parser = tuple((
+    let mut parser = tuple((
         many0(c_wsp),
         alt((
             map(tag("=/"), |_| Kind::Incremental),
@@ -181,7 +181,7 @@ fn defined_as<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Ki
 /// elements = alternation *WSP
 /// Errata ID: 2968
 fn elements<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Node, E> {
-    let parser = tuple((alternation, many0(WSP)));
+    let mut parser = tuple((alternation, many0(WSP)));
 
     let (input, (alternation, _)) = parser(input)?;
 
@@ -190,7 +190,7 @@ fn elements<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Node
 
 ///c-wsp = WSP / (c-nl WSP)
 fn c_wsp<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, (), E> {
-    let parser = alt((map(WSP, |_| ()), map(tuple((c_nl, WSP)), |_| ())));
+    let mut parser = alt((map(WSP, |_| ()), map(tuple((c_nl, WSP)), |_| ())));
 
     let (input, _) = parser(input)?;
 
@@ -199,7 +199,7 @@ fn c_wsp<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, (), E> 
 
 /// c-nl = comment / CRLF ; comment or newline
 fn c_nl<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, (), E> {
-    let parser = alt((comment, map(crlf_relaxed, |_| ())));
+    let mut parser = alt((comment, map(crlf_relaxed, |_| ())));
 
     let (input, _) = parser(input)?;
 
@@ -217,7 +217,7 @@ fn comment<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, (), E
 
 /// alternation = concatenation *(*c-wsp "/" *c-wsp concatenation)
 fn alternation<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Node, E> {
-    let parser = tuple((
+    let mut parser = tuple((
         concatenation,
         many0(tuple((
             many0(c_wsp),
@@ -245,7 +245,7 @@ fn alternation<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, N
 
 /// concatenation = repetition *(1*c-wsp repetition)
 fn concatenation<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Node, E> {
-    let parser = tuple((repetition, many0(tuple((many1(c_wsp), repetition)))));
+    let mut parser = tuple((repetition, many0(tuple((many1(c_wsp), repetition)))));
 
     let (input, (head, tail)) = parser(input)?;
 
@@ -265,7 +265,7 @@ fn concatenation<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str,
 
 /// repetition = [repeat] element
 fn repetition<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Node, E> {
-    let parser = tuple((opt(repeat), element));
+    let mut parser = tuple((opt(repeat), element));
 
     let (input, (repeat, node)) = parser(input)?;
 
@@ -279,7 +279,7 @@ fn repetition<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, No
 
 /// repeat = 1*DIGIT / (*DIGIT "*" *DIGIT)
 fn repeat<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Repeat, E> {
-    let parser = alt((
+    let mut parser = alt((
         map(
             tuple((many0(DIGIT), char('*'), many0(DIGIT))),
             |(min, _, max)| {
@@ -311,7 +311,7 @@ fn repeat<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Repeat
 
 /// element = rulename / group / option / char-val / num-val / prose-val
 fn element<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Node, E> {
-    let parser = alt((
+    let mut parser = alt((
         map(rulename, Node::Rulename),
         map(group, |e| e),
         map(option, |e| e),
@@ -327,7 +327,7 @@ fn element<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Node,
 
 /// group = "(" *c-wsp alternation *c-wsp ")"
 fn group<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Node, E> {
-    let parser = tuple((
+    let mut parser = tuple((
         char('('),
         many0(c_wsp),
         alternation,
@@ -342,7 +342,7 @@ fn group<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Node, E
 
 /// option = "[" *c-wsp alternation *c-wsp "]"
 fn option<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Node, E> {
-    let parser = tuple((
+    let mut parser = tuple((
         char('['),
         many0(c_wsp),
         alternation,
@@ -371,7 +371,7 @@ fn char_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &str
 
 /// num-val = "%" (bin-val / dec-val / hex-val)
 fn num_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, TerminalValues, E> {
-    let parser = tuple((char('%'), alt((bin_val, dec_val, hex_val))));
+    let mut parser = tuple((char('%'), alt((bin_val, dec_val, hex_val))));
 
     let (input, (_, range)) = parser(input)?;
 
