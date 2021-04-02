@@ -35,10 +35,10 @@ use nom::{
     branch::alt,
     bytes::complete::{tag, take_until, take_while},
     character::complete::char,
-    combinator::{all_consuming, cut, map, opt},
+    combinator::{all_consuming, map, opt, recognize, value},
     error::{convert_error, ParseError, VerboseError},
-    multi::{many0, many1},
-    sequence::tuple,
+    multi::{many0, many1, separated_list1},
+    sequence::{delimited, preceded, terminated, tuple},
     IResult,
 };
 
@@ -135,7 +135,7 @@ fn rulelist_internal<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a 
 ///         ;  with white space
 /// ```
 fn rule_internal<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, Rule, E> {
-    let mut parser = tuple((rulename, defined_as, elements, cut(c_nl)));
+    let mut parser = tuple((rulename, defined_as, elements, c_nl));
 
     let (input, (name, definition, elements, _)) = parser(input)?;
 
@@ -149,91 +149,51 @@ fn rule_internal<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, Ru
 
 /// rulename = ALPHA *(ALPHA / DIGIT / "-")
 fn rulename<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, String, E> {
-    let valid = |x| is_ALPHA(x) || is_DIGIT(x) || x == '-';
+    let is_valid = |x| is_ALPHA(x) || is_DIGIT(x) || x == '-';
 
-    let (input, (head, tail)) = tuple((ALPHA, take_while(valid)))(input)?;
+    let (input, out) = recognize(tuple((ALPHA, take_while(is_valid))))(input)?;
 
-    let mut val = String::new();
-    val.push(head);
-    val.push_str(tail);
-
-    Ok((input, val))
+    Ok((input, out.to_string()))
 }
 
 /// defined-as = *c-wsp ("=" / "=/") *c-wsp
-///               ; basic rules definition and
-///               ;  incremental alternatives
 fn defined_as<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Kind, E> {
-    let mut parser = tuple((
+    delimited(
         many0(c_wsp),
         alt((
-            map(tag("=/"), |_| Kind::Incremental),
-            map(tag("="), |_| Kind::Basic),
+            value(Kind::Incremental, tag("=/")),
+            value(Kind::Basic, tag("=")),
         )),
         many0(c_wsp),
-    ));
-
-    let (input, (_, definition, _)) = parser(input)?;
-
-    Ok((input, definition))
+    )(input)
 }
 
 /// elements = alternation *WSP
 /// Errata ID: 2968
 fn elements<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Node, E> {
-    let mut parser = tuple((alternation, many0(WSP)));
-
-    let (input, (alternation, _)) = parser(input)?;
-
-    Ok((input, alternation))
+    terminated(alternation, many0(WSP))(input)
 }
 
 ///c-wsp = WSP / (c-nl WSP)
-fn c_wsp<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, (), E> {
-    let mut parser = alt((map(WSP, |_| ()), map(tuple((c_nl, WSP)), |_| ())));
-
-    let (input, _) = parser(input)?;
-
-    Ok((input, ()))
+fn c_wsp<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &'a str, E> {
+    alt((recognize(WSP), recognize(tuple((c_nl, recognize(WSP))))))(input)
 }
 
 /// c-nl = comment / CRLF ; comment or newline
-fn c_nl<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, (), E> {
-    let mut parser = alt((comment, map(crlf_relaxed, |_| ())));
-
-    let (input, _) = parser(input)?;
-
-    Ok((input, ()))
+fn c_nl<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &'a str, E> {
+    alt((comment, crlf_relaxed))(input)
 }
 
 /// comment = ";" *(WSP / VCHAR) CRLF
-fn comment<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, (), E> {
-    let (input, _) = char(';')(input)?;
-    let (input, _) = take_until("\n")(input)?;
-    let (input, _) = char('\n')(input)?;
-
-    Ok((input, ()))
+fn comment<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &'a str, E> {
+    recognize(tuple((char(';'), take_until("\n"), char('\n'))))(input)
 }
 
 /// alternation = concatenation *(*c-wsp "/" *c-wsp concatenation)
 fn alternation<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Node, E> {
-    let mut parser = tuple((
-        concatenation,
-        many0(tuple((
-            many0(c_wsp),
-            char('/'),
-            many0(c_wsp),
-            concatenation,
-        ))),
-    ));
+    let separator = tuple((many0(c_wsp), char('/'), many0(c_wsp)));
 
-    let (input, (head, tail)) = parser(input)?;
-
-    let mut concatenations = vec![head];
-
-    for (_, _, _, item) in tail {
-        concatenations.push(item)
-    }
+    let (input, mut concatenations) = separated_list1(separator, concatenation)(input)?;
 
     // if alternation has only one child, do not wrap it in a `Node::Alternation`.
     if concatenations.len() == 1 {
@@ -245,15 +205,9 @@ fn alternation<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, N
 
 /// concatenation = repetition *(1*c-wsp repetition)
 fn concatenation<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Node, E> {
-    let mut parser = tuple((repetition, many0(tuple((many1(c_wsp), repetition)))));
+    let separator = many1(c_wsp);
 
-    let (input, (head, tail)) = parser(input)?;
-
-    let mut repetitions = vec![head];
-
-    for (_, item) in tail {
-        repetitions.push(item)
-    }
+    let (input, mut repetitions) = separated_list1(separator, repetition)(input)?;
 
     // if concatenation has only one child, do not wrap it in a `Node::Concatenation`.
     if repetitions.len() == 1 {
@@ -298,9 +252,9 @@ fn repeat<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Repeat
                 Repeat::with(min, max)
             },
         ),
-        map(many1(DIGIT), |min| {
-            let min = usize::from_str_radix(&min.into_iter().collect::<String>(), 10).unwrap();
-            Repeat::with(Some(min), Some(min))
+        map(many1(DIGIT), |value| {
+            let value = usize::from_str_radix(&value.into_iter().collect::<String>(), 10).unwrap();
+            Repeat::with(Some(value), Some(value))
         }),
     ));
 
@@ -311,73 +265,55 @@ fn repeat<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Repeat
 
 /// element = rulename / group / option / char-val / num-val / prose-val
 fn element<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Node, E> {
-    let mut parser = alt((
+    alt((
         map(rulename, Node::Rulename),
-        map(group, |e| e),
-        map(option, |e| e),
+        group,
+        option,
         map(char_val, |str| Node::String(str.to_owned())),
         map(num_val, Node::TerminalValues),
         map(prose_val, |str| Node::Prose(str.to_owned())),
-    ));
-
-    let (input, val) = parser(input)?;
-
-    Ok((input, val))
+    ))(input)
 }
 
 /// group = "(" *c-wsp alternation *c-wsp ")"
 fn group<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Node, E> {
-    let mut parser = tuple((
+    let mut parser = delimited(
         char('('),
-        many0(c_wsp),
-        alternation,
-        many0(c_wsp),
+        delimited(many0(c_wsp), alternation, many0(c_wsp)),
         char(')'),
-    ));
+    );
 
-    let (input, (_, _, alternation, _, _)) = parser(input)?;
+    let (input, alternation) = parser(input)?;
 
     Ok((input, Node::Group(Box::new(alternation))))
 }
 
 /// option = "[" *c-wsp alternation *c-wsp "]"
 fn option<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Node, E> {
-    let mut parser = tuple((
+    let mut parser = delimited(
         char('['),
-        many0(c_wsp),
-        alternation,
-        many0(c_wsp),
+        delimited(many0(c_wsp), alternation, many0(c_wsp)),
         char(']'),
-    ));
+    );
 
-    let (input, (_, _, alternation, _, _)) = parser(input)?;
+    let (input, alternation) = parser(input)?;
 
     Ok((input, Node::Optional(Box::new(alternation))))
 }
 
 /// char-val = DQUOTE *(%x20-21 / %x23-7E) DQUOTE
-///             ; quoted string of SP and VCHAR
-///             ;  without DQUOTE
 fn char_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &str, E> {
-    let char_val_chars = |x| matches!(x, '\x20'..='\x21' | '\x23'..='\x7E');
+    let is_inner = |x| matches!(x, '\x20'..='\x21' | '\x23'..='\x7E');
 
-    let (input, (_, val, _)) = tuple((DQUOTE, take_while(char_val_chars), DQUOTE))(input)?;
-
-    Ok((input, val))
+    delimited(DQUOTE, take_while(is_inner), DQUOTE)(input)
 }
 
 /// num-val = "%" (bin-val / dec-val / hex-val)
 fn num_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, TerminalValues, E> {
-    let mut parser = tuple((char('%'), alt((bin_val, dec_val, hex_val))));
-
-    let (input, (_, range)) = parser(input)?;
-
-    Ok((input, range))
+    preceded(char('%'), alt((bin_val, dec_val, hex_val)))(input)
 }
 
 /// bin-val = "b" 1*BIT [ 1*("." 1*BIT) / ("-" 1*BIT) ]
-///            ; series of concatenated bit values
-///            ;  or single ONEOF range
 fn bin_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, TerminalValues, E> {
     let (input, _) = char('b')(input)?;
 
@@ -475,14 +411,10 @@ fn hex_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Termi
 }
 
 /// prose-val = "<" *(%x20-3D / %x3F-7E) ">"
-///             ; bracketed string of SP and VCHAR without angles
-///             ; prose description, to be used as last resort
 fn prose_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &str, E> {
-    let prose_val_chars = |x| matches!(x, '\x20'..='\x3D' | '\x3F'..='\x7E');
+    let is_inner = |x| matches!(x, '\x20'..='\x3D' | '\x3F'..='\x7E');
 
-    let (input, (_, val, _)) = tuple((char('<'), take_while(prose_val_chars), char('>')))(input)?;
-
-    Ok((input, val))
+    delimited(char('<'), take_while(is_inner), char('>'))(input)
 }
 
 #[cfg(test)]
@@ -736,7 +668,6 @@ mod tests {
         if let Err(_) = rule_internal::<VerboseError<&str>>(&printed) {
             println!("# Found interesting rule:");
             println!("{}", test);
-            println!("{:#?}", test);
         }
     }
 
