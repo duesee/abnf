@@ -675,6 +675,7 @@ mod tests {
 
         if let Err(_) = rule_internal::<VerboseError<&str>>(&printed) {
             println!("# Found interesting rule:");
+            println!("{:#?}", test);
             println!("{}", test);
         }
     }
