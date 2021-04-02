@@ -156,6 +156,8 @@ fn rulename<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Stri
     Ok((input, out.to_string()))
 }
 
+/// Basic rules definition and incremental alternatives.
+///
 /// defined-as = *c-wsp ("=" / "=/") *c-wsp
 fn defined_as<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Kind, E> {
     delimited(
@@ -179,7 +181,9 @@ fn c_wsp<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &'a str
     alt((recognize(WSP), recognize(tuple((c_nl, recognize(WSP))))))(input)
 }
 
-/// c-nl = comment / CRLF ; comment or newline
+/// Comment or Newline.
+///
+/// c-nl = comment / CRLF
 fn c_nl<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &'a str, E> {
     alt((comment, crlf_relaxed))(input)
 }
@@ -301,6 +305,8 @@ fn option<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Node, 
     Ok((input, Node::Optional(Box::new(alternation))))
 }
 
+/// Quoted string of SP and VCHAR without DQUOTE
+///
 /// char-val = DQUOTE *(%x20-21 / %x23-7E) DQUOTE
 fn char_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &str, E> {
     let is_inner = |x| matches!(x, '\x20'..='\x21' | '\x23'..='\x7E');
@@ -313,6 +319,8 @@ fn num_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Termi
     preceded(char('%'), alt((bin_val, dec_val, hex_val)))(input)
 }
 
+/// Series of concatenated bit values or single ONEOF range
+///
 /// bin-val = "b" 1*BIT [ 1*("." 1*BIT) / ("-" 1*BIT) ]
 fn bin_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, TerminalValues, E> {
     let (input, _) = char('b')(input)?;
@@ -410,6 +418,8 @@ fn hex_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Termi
     }
 }
 
+/// Bracketed string of SP and VCHAR without angles prose description, to be used as last resort.
+///
 /// prose-val = "<" *(%x20-3D / %x3F-7E) ">"
 fn prose_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &str, E> {
     let is_inner = |x| matches!(x, '\x20'..='\x3D' | '\x3F'..='\x7E');
