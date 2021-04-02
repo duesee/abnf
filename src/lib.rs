@@ -1,5 +1,4 @@
 #![warn(missing_docs)]
-#![warn(missing_doc_code_examples)]
 
 //! A crate for parsing ABNF definitions ([RFC5234](https://tools.ietf.org/html/rfc5234))
 //!

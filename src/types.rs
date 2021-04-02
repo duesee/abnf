@@ -20,7 +20,7 @@
 use std::fmt;
 
 /// Is a rule a basic rule or an incremental alternative?
-/// See https://tools.ietf.org/html/rfc5234#section-3.3
+/// See <https://tools.ietf.org/html/rfc5234#section-3.3>
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum Kind {
     /// Basic Rule Definition
