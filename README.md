@@ -5,13 +5,14 @@
 
 # ABNF
 
-A parser for ABNF based on nom 5.
+A parser for ABNF based on nom 6.
 
 ## Example
 
 ```rust
 use abnf::rulelist;
 
+// Note: mind the trailing newline!
 match rulelist("a = b / c\nc = *(d e)\n") {
     Ok(rules) => println!("{:#?}", rules),
     Err(error) => eprintln!("{}", error),
