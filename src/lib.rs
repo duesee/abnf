@@ -87,13 +87,13 @@ pub fn rulelist(input: &str) -> Result<Vec<Rule>, crate::error::ParseError> {
 /// ```
 /// use abnf::rule;
 ///
-/// match rule("a = b / c / *d\n") {
+/// match rule("a = b / c / *d") {
 ///    Ok(rules) => println!("{:#?}", rules),
 ///    Err(error) => eprintln!("{}", error),
 /// }
 /// ```
 pub fn rule(input: &str) -> Result<Rule, crate::error::ParseError> {
-    match all_consuming(rule_internal::<VerboseError<&str>>)(input) {
+    match all_consuming(rule_internal_single::<VerboseError<&str>>)(input) {
         Ok((remaining, rule)) => {
             assert!(remaining.is_empty());
             Ok(rule)
@@ -136,6 +136,26 @@ fn rule_internal<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, Ru
     let mut parser = tuple((rulename, defined_as, elements, c_nl));
 
     let (input, (name, definition, elements, _)) = parser(input)?;
+
+    let rule = match definition {
+        Kind::Basic => Rule::new(&name, elements),
+        Kind::Incremental => Rule::incremental(&name, elements),
+    };
+
+    Ok((input, rule))
+}
+
+/// Whitespace and comments before rule allowed, no trailing newline required.
+fn rule_internal_single<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, Rule, E> {
+    let mut parser = tuple((
+        many0(alt((c_nl, recognize(WSP)))),
+        rulename,
+        defined_as,
+        elements,
+        opt(c_nl),
+    ));
+
+    let (input, (_, name, definition, elements, _)) = parser(input)?;
 
     let rule = match definition {
         Kind::Basic => Rule::new(&name, elements),
@@ -731,13 +751,6 @@ mod tests {
     }
 
     #[test]
-    fn test_error_handling() {
-        let data = "a = *b\n\n\nb = *x";
-        let error = rulelist(data).unwrap_err();
-        println!("{}", error);
-    }
-
-    #[test]
     fn test_file_abnf_core() {
         let imap = std::fs::read_to_string("examples/assets/abnf_core.abnf").unwrap();
         rulelist(&imap).unwrap();
@@ -753,5 +766,34 @@ mod tests {
     fn test_file_imap() {
         let imap = std::fs::read_to_string("examples/assets/imap.abnf").unwrap();
         rulelist(&imap).unwrap();
+    }
+
+    #[test]
+    fn test_relaxed_rule_parsing() {
+        let expected = Rule::new("rule", Node::rulename("A"));
+
+        let tests = [
+            "rule = A",
+            "rule = A\n",
+            " rule = A",
+            " rule = A\n",
+            "; Comment\nrule = A",
+            "; Comment\nrule = A\n",
+            "\n; Comment\nrule = A",
+            "\n; Comment\nrule = A\n",
+            "\n; Comment\n rule = A",
+            "\n; Comment\n rule = A\n",
+            "\n\n   \n   \n \n; Comment \n\n\n  \n \n rule = \n A",
+        ];
+
+        for test in &tests {
+            println!("[#] {}", test);
+
+            let got = rule(test).unwrap();
+            println!("[#] {:?}", got);
+
+            assert_eq!(expected, got);
+            println!("-------------------------------------------");
+        }
     }
 }
