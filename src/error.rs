@@ -33,7 +33,7 @@
 //! **Note**: `ParsingError` is in fact just `Nom`'s `VerboseError` in disguise.
 //! Currently, it is a best effort solution to give a rough idea where the erroneous syntax is.
 
-use std::fmt;
+use std::{error::Error, fmt};
 
 /// A generic parsing error.
 #[derive(Debug)]
@@ -46,3 +46,5 @@ impl fmt::Display for ParseError {
         write!(f, "{}", self.message)
     }
 }
+
+impl Error for ParseError {}
