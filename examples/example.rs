@@ -1,19 +1,13 @@
 use abnf::rulelist;
 
-use std::env::args;
-use std::fs::File;
-use std::io::Read;
+use std::error::Error;
 
-fn main() -> std::io::Result<()> {
+fn main() -> Result<(), Box<dyn Error>> {
     let rules = {
-        let mut file = File::open(args().nth(1).expect("no file given"))?;
-        let mut data = String::new();
-        file.read_to_string(&mut data)?;
+        let path = std::env::args().nth(1).ok_or("No path to file given.")?;
+        let data = std::fs::read_to_string(path)?;
 
-        rulelist(&data).unwrap_or_else(|e| {
-            println!("{}", e);
-            std::process::exit(1);
-        })
+        rulelist(&data)?
     };
 
     for rule in &rules {
