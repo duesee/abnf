@@ -120,12 +120,7 @@ fn rulelist_internal<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a 
 
     let (input, rulelist) = parser(input)?;
 
-    let mut res = vec![];
-    for rule in rulelist.into_iter().flatten() {
-        res.push(rule)
-    }
-
-    Ok((input, res))
+    Ok((input, rulelist.into_iter().flatten().collect()))
 }
 
 /// ```abnf
