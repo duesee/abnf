@@ -11,8 +11,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
 
     for rule in &rules {
-        println!("[!] {}", rule);
-        println!("[!] {:#?}\n", rule);
+        println!("// {}", rule);
+        println!("{:#?}\n", rule);
     }
 
     Ok(())
