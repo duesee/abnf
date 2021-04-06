@@ -9,6 +9,8 @@ A parser for ABNF based on nom 6.
 
 ## Example
 
+The following code
+
 ```rust
 use abnf::rulelist;
 
@@ -19,13 +21,13 @@ match rulelist("a = b / c\nc = *(d e)\n") {
 }
 ```
 
-## Output
+outputs
 
-```
+```rust
 [
     Rule {
         name: "a",
-        node: Alternation(
+        node: Alternatives(
             [
                 Rulename(
                     "b",
@@ -39,29 +41,33 @@ match rulelist("a = b / c\nc = *(d e)\n") {
     },
     Rule {
         name: "c",
-        node: Repetition(
-            Repetition {
-                repeat: Repeat {
-                    min: None,
-                    max: None,
-                },
-                node: Group(
-                    Concatenation(
-                        [
-                            Rulename(
-                                "d",
-                            ),
-                            Rulename(
-                                "e",
-                            ),
-                        ],
-                    ),
-                ),
+        node: Repetition {
+            repeat: Variable {
+                min: None,
+                max: None,
             },
-        ),
+            node: Group(
+                Concatenation(
+                    [
+                        Rulename(
+                            "d",
+                        ),
+                        Rulename(
+                            "e",
+                        ),
+                    ],
+                ),
+            ),
+        },
         kind: Basic,
     },
 ]
+```
+
+You can also use the provided example to parse and `Debug`-print any ABNF file.
+
+```sh
+cargo run --example=example examples/assets/abnf.abnf
 ```
 
 # License
