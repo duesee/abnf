@@ -202,11 +202,11 @@ fn alternation<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, N
 
     let (input, mut concatenations) = separated_list1(separator, concatenation)(input)?;
 
-    // if alternation has only one child, do not wrap it in a `Node::Alternation`.
+    // if there is only a single element in the alternatives, do not wrap it in a `Node::Alternatives`.
     if concatenations.len() == 1 {
         Ok((input, concatenations.pop().unwrap()))
     } else {
-        Ok((input, Node::Alternation(concatenations)))
+        Ok((input, Node::Alternatives(concatenations)))
     }
 }
 
@@ -218,7 +218,7 @@ fn concatenation<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str,
 
     let (input, mut repetitions) = separated_list1(separator, repetition)(input)?;
 
-    // if concatenation has only one child, do not wrap it in a `Node::Concatenation`.
+    // if there is only a single element in the concatenation, do not wrap it in a `Node::Concatenation`.
     if repetitions.len() == 1 {
         Ok((input, repetitions.pop().unwrap()))
     } else {
@@ -521,7 +521,7 @@ mod tests {
             let name = String::from("a") + &name;
 
             match g.gen_range(0, 9) {
-                0 => Node::Alternation(vec![Node::arbitrary(g), Node::arbitrary(g)]),
+                0 => Node::Alternatives(vec![Node::arbitrary(g), Node::arbitrary(g)]),
                 1 => Node::Concatenation(vec![Node::arbitrary(g), Node::arbitrary(g)]),
                 2 => Node::Repetition {
                     repeat: Repeat::arbitrary(g),
@@ -576,14 +576,14 @@ mod tests {
                 "B = A / B\n",
                 Rule::new(
                     "B",
-                    Node::alternation(&[Node::rulename("A"), Node::rulename("B")]),
+                    Node::alternatives(&[Node::rulename("A"), Node::rulename("B")]),
                 ),
             ),
             (
                 "c = (A / B)\n",
                 Rule::new(
                     "c",
-                    Node::group(Node::alternation(&[
+                    Node::group(Node::alternatives(&[
                         Node::rulename("A"),
                         Node::rulename("B"),
                     ])),
@@ -711,7 +711,7 @@ mod tests {
                 "B =/ A / B\n",
                 Rule::incremental(
                     "B",
-                    Node::alternation(&[Node::rulename("A"), Node::rulename("B")]),
+                    Node::alternatives(&[Node::rulename("A"), Node::rulename("B")]),
                 ),
             ),
         ];

@@ -22,9 +22,9 @@ impl Dependencies for Rule {
 impl Dependencies for Node {
     fn calc_dependencies(&self) -> Vec<String> {
         match self {
-            // If we are an alternation or a concatenation,
-            // collect the dependencies of all the alternated/concatenated elements.
-            Node::Alternation(nodes) | Node::Concatenation(nodes) => {
+            // If we are a set of alternatives or a concatenation,
+            // collect the dependencies of all alternatives/concatenated elements.
+            Node::Alternatives(nodes) | Node::Concatenation(nodes) => {
                 let mut ret_val = Vec::new();
                 for node in nodes {
                     for dep in node.calc_dependencies() {

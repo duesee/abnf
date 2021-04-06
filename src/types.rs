@@ -6,7 +6,7 @@
 //! ```
 //! use abnf::types::*;
 //!
-//! let rule = Rule::new("test", Node::alternation(&[
+//! let rule = Rule::new("test", Node::alternatives(&[
 //!     Node::rulename("A"),
 //!     Node::concatenation(&[
 //!         Node::rulename("B"),
@@ -77,7 +77,7 @@ impl Rule {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Node {
     /// An alternation, e.g. `A / B / C`.
-    Alternation(Vec<Node>),
+    Alternatives(Vec<Node>),
     /// A concatenation, e.g. `A B C`.
     Concatenation(Vec<Node>),
     /// A repetition, e.g. `*A`.
@@ -103,9 +103,9 @@ pub enum Node {
 }
 
 impl Node {
-    /// Constructor/Shorthand for Node::Alternation(...).
-    pub fn alternation(nodes: &[Node]) -> Node {
-        Node::Alternation(nodes.to_vec())
+    /// Constructor/Shorthand for Node::Alternatives(...).
+    pub fn alternatives(nodes: &[Node]) -> Node {
+        Node::Alternatives(nodes.to_vec())
     }
 
     /// Constructor/Shorthand for Node::Concatenation(...).
@@ -249,7 +249,7 @@ impl fmt::Display for Rule {
 impl fmt::Display for Node {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Node::Alternation(nodes) => {
+            Node::Alternatives(nodes) => {
                 if let Some((last, elements)) = nodes.split_last() {
                     for item in elements {
                         write!(f, "{} / ", item)?;
