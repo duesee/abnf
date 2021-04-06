@@ -164,12 +164,10 @@ fn rule_internal_single<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&
 /// ```abnf
 /// rulename = ALPHA *(ALPHA / DIGIT / "-")
 /// ```
-fn rulename<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, String, E> {
+fn rulename<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &str, E> {
     let is_valid = |x| is_ALPHA(x) || is_DIGIT(x) || x == '-';
 
-    let (input, out) = recognize(tuple((ALPHA, take_while(is_valid))))(input)?;
-
-    Ok((input, out.to_string()))
+    recognize(tuple((ALPHA, take_while(is_valid))))(input)
 }
 
 /// Basic rules definition and incremental alternatives.
@@ -306,7 +304,7 @@ fn repeat<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Repeat
 /// ```
 fn element<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Node, E> {
     alt((
-        map(rulename, Node::Rulename),
+        map(rulename, |rulename| Node::Rulename(rulename.to_owned())),
         group,
         option,
         map(char_val, |str| Node::String(str.to_owned())),
