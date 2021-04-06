@@ -106,9 +106,11 @@ pub fn rule(input: &str) -> Result<Rule, crate::error::ParseError> {
     }
 }
 
+// -------------------------------------------------------------------------------------------------
+
 /// ```abnf
 /// rulelist = 1*( rule / (*WSP c-nl) )
-/// ; Errata ID: 3076
+///             ; Errata ID: 3076
 /// ```
 fn rulelist_internal<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Vec<Rule>, E> {
     let mut parser = many1(alt((
@@ -164,7 +166,9 @@ fn rule_internal_single<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&
     Ok((input, rule))
 }
 
+/// ```abnf
 /// rulename = ALPHA *(ALPHA / DIGIT / "-")
+/// ```
 fn rulename<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, String, E> {
     let is_valid = |x| is_ALPHA(x) || is_DIGIT(x) || x == '-';
 
@@ -175,7 +179,9 @@ fn rulename<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Stri
 
 /// Basic rules definition and incremental alternatives.
 ///
+/// ```abnf
 /// defined-as = *c-wsp ("=" / "=/") *c-wsp
+/// ```
 fn defined_as<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Kind, E> {
     delimited(
         many0(c_wsp),
@@ -187,30 +193,40 @@ fn defined_as<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Ki
     )(input)
 }
 
+/// ```abnf
 /// elements = alternation *WSP
-/// Errata ID: 2968
+///             ; Errata ID: 2968
+/// ```
 fn elements<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Node, E> {
     terminated(alternation, many0(WSP))(input)
 }
 
-///c-wsp = WSP / (c-nl WSP)
+/// ```abnf
+/// c-wsp = WSP / (c-nl WSP)
+/// ```
 fn c_wsp<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &'a str, E> {
     alt((recognize(WSP), recognize(tuple((c_nl, recognize(WSP))))))(input)
 }
 
 /// Comment or Newline.
 ///
+/// ```abnf
 /// c-nl = comment / CRLF
+/// ```
 fn c_nl<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &'a str, E> {
     alt((comment, crlf_relaxed))(input)
 }
 
+/// ```abnf
 /// comment = ";" *(WSP / VCHAR) CRLF
+/// ```
 fn comment<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &'a str, E> {
     recognize(tuple((char(';'), take_until("\n"), char('\n'))))(input)
 }
 
+/// ```abnf
 /// alternation = concatenation *(*c-wsp "/" *c-wsp concatenation)
+/// ```
 fn alternation<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Node, E> {
     let separator = tuple((many0(c_wsp), char('/'), many0(c_wsp)));
 
@@ -224,7 +240,9 @@ fn alternation<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, N
     }
 }
 
+/// ```abnf
 /// concatenation = repetition *(1*c-wsp repetition)
+/// ```
 fn concatenation<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Node, E> {
     let separator = many1(c_wsp);
 
@@ -238,7 +256,9 @@ fn concatenation<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str,
     }
 }
 
+/// ```abnf
 /// repetition = [repeat] element
+/// ```
 fn repetition<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Node, E> {
     let mut parser = tuple((opt(repeat), element));
 
@@ -252,7 +272,9 @@ fn repetition<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, No
     }
 }
 
+/// ```abnf
 /// repeat = 1*DIGIT / (*DIGIT "*" *DIGIT)
+/// ```
 fn repeat<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Repeat, E> {
     let mut parser = alt((
         map(
@@ -284,7 +306,9 @@ fn repeat<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Repeat
     Ok((input, repeat))
 }
 
+/// ```abnf
 /// element = rulename / group / option / char-val / num-val / prose-val
+/// ```
 fn element<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Node, E> {
     alt((
         map(rulename, Node::Rulename),
@@ -296,7 +320,9 @@ fn element<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Node,
     ))(input)
 }
 
+/// ```abnf
 /// group = "(" *c-wsp alternation *c-wsp ")"
+/// ```
 fn group<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Node, E> {
     let mut parser = delimited(
         char('('),
@@ -309,7 +335,9 @@ fn group<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Node, E
     Ok((input, Node::Group(Box::new(alternation))))
 }
 
+/// ```abnf
 /// option = "[" *c-wsp alternation *c-wsp "]"
+/// ```
 fn option<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Node, E> {
     let mut parser = delimited(
         char('['),
@@ -324,21 +352,27 @@ fn option<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Node, 
 
 /// Quoted string of SP and VCHAR without DQUOTE
 ///
+/// ```abnf
 /// char-val = DQUOTE *(%x20-21 / %x23-7E) DQUOTE
+/// ```
 fn char_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &str, E> {
     let is_inner = |x| matches!(x, '\x20'..='\x21' | '\x23'..='\x7E');
 
     delimited(DQUOTE, take_while(is_inner), DQUOTE)(input)
 }
 
+/// ```abnf
 /// num-val = "%" (bin-val / dec-val / hex-val)
+/// ```
 fn num_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, TerminalValues, E> {
     preceded(char('%'), alt((bin_val, dec_val, hex_val)))(input)
 }
 
 /// Series of concatenated bit values or single ONEOF range
 ///
+/// ```abnf
 /// bin-val = "b" 1*BIT [ 1*("." 1*BIT) / ("-" 1*BIT) ]
+/// ```
 fn bin_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, TerminalValues, E> {
     let (input, _) = char('b')(input)?;
 
@@ -373,7 +407,9 @@ fn bin_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Termi
     }
 }
 
+/// ```abnf
 /// dec-val = "d" 1*DIGIT [ 1*("." 1*DIGIT) / ("-" 1*DIGIT) ]
+/// ```
 fn dec_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, TerminalValues, E> {
     let (input, _) = char('d')(input)?;
 
@@ -404,7 +440,9 @@ fn dec_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Termi
     }
 }
 
+/// ```abnf
 /// hex-val = "x" 1*HEXDIG [ 1*("." 1*HEXDIG) / ("-" 1*HEXDIG) ]
+/// ```
 fn hex_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, TerminalValues, E> {
     let (input, _) = char('x')(input)?;
 
@@ -437,7 +475,9 @@ fn hex_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Termi
 
 /// Bracketed string of SP and VCHAR without angles prose description, to be used as last resort.
 ///
+/// ```abnf
 /// prose-val = "<" *(%x20-3D / %x3F-7E) ">"
+/// ```
 fn prose_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &str, E> {
     let is_inner = |x| matches!(x, '\x20'..='\x3D' | '\x3F'..='\x7E');
 
