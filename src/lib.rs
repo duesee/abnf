@@ -465,6 +465,8 @@ fn c_nl<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &'a str,
 
 /// ```abnf
 /// comment = ";" *(WSP / VCHAR) CRLF
+///
+/// Relaxed, see <https://github.com/duesee/abnf/issues/11>.
 /// ```
 fn comment<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &'a str, E> {
     recognize(tuple((char(';'), take_until("\n"), char('\n'))))(input)

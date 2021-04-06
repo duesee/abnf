@@ -220,11 +220,12 @@ impl Repeat {
 /// Terminal created by numerical values.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum TerminalValues {
+    // Relaxed for Unicode support, see <https://github.com/duesee/abnf/pull/3>.
     /// A single value within a range (e.g. `%x01-ff`).
     Range(u32, u32),
     /// A terminal defined by a concatenation of values (e.g. `%x0f.f1.ce`).
     Concatenation(Vec<u32>),
-} // FIXME: u32 may be out of spec. But it is useful for UTF-8.
+}
 
 impl TerminalValues {
     /// Create an alternation from a lower and upper bound (both inclusive).
