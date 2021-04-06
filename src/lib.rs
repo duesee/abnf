@@ -29,15 +29,15 @@
 //! ```
 
 use crate::types::*;
-use abnf_core::{complete::*, is_ALPHA, is_DIGIT};
+use abnf_core::{complete::*, is_ALPHA, is_BIT, is_DIGIT, is_HEXDIG};
 use nom::{
     branch::alt,
-    bytes::complete::{tag, take_until, take_while},
+    bytes::complete::{tag, take_until, take_while, take_while1},
     character::complete::char,
     combinator::{all_consuming, map, opt, recognize, value},
-    error::{convert_error, ParseError, VerboseError},
+    error::{convert_error, ErrorKind, ParseError, VerboseError},
     multi::{many0, many1, separated_list1},
-    sequence::{delimited, preceded, terminated, tuple},
+    sequence::{delimited, preceded, separated_pair, terminated, tuple},
     IResult,
 };
 
@@ -246,34 +246,13 @@ fn repetition<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, No
 /// repeat = 1*DIGIT / (*DIGIT "*" *DIGIT)
 /// ```
 fn repeat<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Repeat, E> {
-    let mut parser = alt((
+    alt((
         map(
-            tuple((many0(DIGIT), char('*'), many0(DIGIT))),
-            |(min, _, max)| {
-                let min = if !min.is_empty() {
-                    Some(usize::from_str_radix(&min.into_iter().collect::<String>(), 10).unwrap())
-                } else {
-                    None
-                };
-
-                let max = if !max.is_empty() {
-                    Some(usize::from_str_radix(&max.into_iter().collect::<String>(), 10).unwrap())
-                } else {
-                    None
-                };
-
-                Repeat::variable(min, max)
-            },
+            separated_pair(opt(dec_usize), char('*'), opt(dec_usize)),
+            |(min, max)| Repeat::Variable { min, max },
         ),
-        map(many1(DIGIT), |value| {
-            let value = usize::from_str_radix(&value.into_iter().collect::<String>(), 10).unwrap();
-            Repeat::specific(value)
-        }),
-    ));
-
-    let (input, repeat) = parser(input)?;
-
-    Ok((input, repeat))
+        map(dec_usize, Repeat::Specific),
+    ))(input)
 }
 
 /// ```abnf
@@ -344,103 +323,57 @@ fn num_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Termi
 /// bin-val = "b" 1*BIT [ 1*("." 1*BIT) / ("-" 1*BIT) ]
 /// ```
 fn bin_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, TerminalValues, E> {
-    let (input, _) = char('b')(input)?;
-
-    let (input, start) = map(many1(BIT), |val| {
-        u32::from_str_radix(&val.into_iter().collect::<String>(), 2).expect("should never happen")
-    })(input)?;
-
-    let (input, compl) = opt(alt((
-        map(many1(tuple((char('.'), many1(BIT)))), |pairs| {
-            let mut all = vec![start];
-            for (_, val) in pairs.into_iter() {
-                all.push(
-                    u32::from_str_radix(&val.into_iter().collect::<String>(), 2)
-                        .expect("should never happen"),
-                )
-            }
-            TerminalValues::Concatenation(all)
-        }),
-        map(tuple((char('-'), many1(BIT))), |(_, end)| {
-            TerminalValues::Range(
-                start,
-                u32::from_str_radix(&end.into_iter().collect::<String>(), 2)
-                    .expect("should never happen"),
-            )
-        }),
-    )))(input)?;
-
-    if let Some(r) = compl {
-        Ok((input, r))
-    } else {
-        Ok((input, TerminalValues::Concatenation(vec![start])))
-    }
+    preceded(
+        char('b'),
+        alt((
+            map(
+                separated_pair(bin_u32, char('-'), bin_u32),
+                |(start, end)| TerminalValues::Range(start, end),
+            ),
+            map(
+                separated_list1(char('.'), bin_u32),
+                TerminalValues::Concatenation,
+            ),
+        )),
+    )(input)
 }
 
 /// ```abnf
 /// dec-val = "d" 1*DIGIT [ 1*("." 1*DIGIT) / ("-" 1*DIGIT) ]
 /// ```
 fn dec_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, TerminalValues, E> {
-    let (input, _) = char('d')(input)?;
-
-    let (input, start) = map(many1(DIGIT), |val| {
-        u32::from_str_radix(&val.into_iter().collect::<String>(), 10).unwrap()
-    })(input)?;
-
-    let (input, compl) = opt(alt((
-        map(many1(tuple((char('.'), many1(DIGIT)))), |pairs| {
-            let mut all = vec![start];
-            for (_, val) in pairs.into_iter() {
-                all.push(u32::from_str_radix(&val.into_iter().collect::<String>(), 10).unwrap())
-            }
-            TerminalValues::Concatenation(all)
-        }),
-        map(tuple((char('-'), many1(DIGIT))), |(_, end)| {
-            TerminalValues::Range(
-                start,
-                u32::from_str_radix(&end.into_iter().collect::<String>(), 10).unwrap(),
-            )
-        }),
-    )))(input)?;
-
-    if let Some(r) = compl {
-        Ok((input, r))
-    } else {
-        Ok((input, TerminalValues::Concatenation(vec![start])))
-    }
+    preceded(
+        char('d'),
+        alt((
+            map(
+                separated_pair(dec_u32, char('-'), dec_u32),
+                |(start, end)| TerminalValues::Range(start, end),
+            ),
+            map(
+                separated_list1(char('.'), dec_u32),
+                TerminalValues::Concatenation,
+            ),
+        )),
+    )(input)
 }
 
 /// ```abnf
 /// hex-val = "x" 1*HEXDIG [ 1*("." 1*HEXDIG) / ("-" 1*HEXDIG) ]
 /// ```
 fn hex_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, TerminalValues, E> {
-    let (input, _) = char('x')(input)?;
-
-    let (input, start) = map(many1(HEXDIG), |val| {
-        u32::from_str_radix(&val.into_iter().collect::<String>(), 16).unwrap()
-    })(input)?;
-
-    let (input, compl) = opt(alt((
-        map(many1(tuple((char('.'), many1(HEXDIG)))), |pairs| {
-            let mut all = vec![start];
-            for (_, val) in pairs.into_iter() {
-                all.push(u32::from_str_radix(&val.into_iter().collect::<String>(), 16).unwrap())
-            }
-            TerminalValues::Concatenation(all)
-        }),
-        map(tuple((char('-'), many1(HEXDIG))), |(_, end)| {
-            TerminalValues::Range(
-                start,
-                u32::from_str_radix(&end.into_iter().collect::<String>(), 16).unwrap(),
-            )
-        }),
-    )))(input)?;
-
-    if let Some(r) = compl {
-        Ok((input, r))
-    } else {
-        Ok((input, TerminalValues::Concatenation(vec![start])))
-    }
+    preceded(
+        char('x'),
+        alt((
+            map(
+                separated_pair(hex_u32, char('-'), hex_u32),
+                |(start, end)| TerminalValues::Range(start, end),
+            ),
+            map(
+                separated_list1(char('.'), hex_u32),
+                TerminalValues::Concatenation,
+            ),
+        )),
+    )(input)
 }
 
 /// Bracketed string of SP and VCHAR without angles prose description, to be used as last resort.
@@ -477,6 +410,56 @@ fn comment<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &'a s
 /// ```
 fn c_wsp<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &'a str, E> {
     alt((recognize(WSP), recognize(tuple((c_nl, recognize(WSP))))))(input)
+}
+
+// -------------------------------------------------------------------------------------------------
+
+fn bin_u32<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, u32, E> {
+    let (remaining, out) = take_while1(is_BIT)(input)?;
+    match u32::from_str_radix(out, 2) {
+        Ok(num) => Ok((remaining, num)),
+        Err(_) => Err(nom::Err::Failure(nom::error::make_error(
+            // FIXME: use error
+            input,
+            ErrorKind::Verify,
+        ))),
+    }
+}
+
+fn dec_u32<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, u32, E> {
+    let (remaining, out) = take_while1(is_DIGIT)(input)?;
+    match u32::from_str_radix(out, 10) {
+        Ok(num) => Ok((remaining, num)),
+        Err(_) => Err(nom::Err::Failure(nom::error::make_error(
+            // FIXME: use error
+            input,
+            ErrorKind::Verify,
+        ))),
+    }
+}
+
+fn dec_usize<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, usize, E> {
+    let (remaining, out) = take_while1(is_DIGIT)(input)?;
+    match usize::from_str_radix(out, 10) {
+        Ok(num) => Ok((remaining, num)),
+        Err(_) => Err(nom::Err::Failure(nom::error::make_error(
+            // FIXME: use error
+            input,
+            ErrorKind::Verify,
+        ))),
+    }
+}
+
+fn hex_u32<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, u32, E> {
+    let (remaining, out) = take_while1(is_HEXDIG)(input)?;
+    match u32::from_str_radix(out, 16) {
+        Ok(num) => Ok((remaining, num)),
+        Err(_) => Err(nom::Err::Failure(nom::error::make_error(
+            // FIXME: use error
+            input,
+            ErrorKind::Verify,
+        ))),
+    }
 }
 
 #[cfg(test)]

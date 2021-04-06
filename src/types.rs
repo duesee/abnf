@@ -214,6 +214,7 @@ impl Repeat {
 /// Terminal created by numerical values.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum TerminalValues {
+    // FIXME: Keep base (bin, dec, hex)
     // Relaxed for Unicode support, see <https://github.com/duesee/abnf/pull/3>.
     /// A single value within a range (e.g. `%x01-ff`).
     Range(u32, u32),
