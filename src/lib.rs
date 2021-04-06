@@ -236,7 +236,7 @@ fn repetition<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, No
 
     // if there is no repeat, do not wrap it in a `Node::Repetition`.
     if let Some(repeat) = repeat {
-        Ok((input, Node::Repetition(Repetition::new(repeat, node))))
+        Ok((input, Node::repetition(repeat, node)))
     } else {
         Ok((input, node))
     }
@@ -523,7 +523,10 @@ mod tests {
             match g.gen_range(0, 9) {
                 0 => Node::Alternation(vec![Node::arbitrary(g), Node::arbitrary(g)]),
                 1 => Node::Concatenation(vec![Node::arbitrary(g), Node::arbitrary(g)]),
-                2 => Node::Repetition(Repetition::new(Repeat::arbitrary(g), Node::arbitrary(g))),
+                2 => Node::Repetition {
+                    repeat: Repeat::arbitrary(g),
+                    node: Box::new(Node::arbitrary(g)),
+                },
                 3 => Node::Rulename(name), // TODO
                 4 => Node::Group(Box::<Node>::arbitrary(g)),
                 5 => Node::Optional(Box::<Node>::arbitrary(g)),
@@ -600,12 +603,15 @@ mod tests {
                 "a = 0*15\"-\"\n",
                 Rule::new(
                     "a",
-                    Node::repeat(Repeat::with(Some(0), Some(15)), Node::string("-")),
+                    Node::repetition(Repeat::with(Some(0), Some(15)), Node::string("-")),
                 ),
             ),
             (
                 "a = *\"-\"\n",
-                Rule::new("a", Node::repeat(Repeat::unbounded(), Node::string("-"))),
+                Rule::new(
+                    "a",
+                    Node::repetition(Repeat::unbounded(), Node::string("-")),
+                ),
             ),
         ];
 
@@ -739,9 +745,9 @@ mod tests {
         // FIXME: This test can not fail currently.
         let rule = Rule::new(
             "rule",
-            Node::repeat(
+            Node::repetition(
                 Repeat::with(Some(1), Some(12)),
-                Node::repeat(Repeat::with(Some(1), Some(2)), Node::prose("test")),
+                Node::repetition(Repeat::with(Some(1), Some(2)), Node::prose("test")),
             ),
         );
         println!("{}", rule);

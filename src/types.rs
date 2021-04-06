@@ -81,7 +81,12 @@ pub enum Node {
     /// A concatenation, e.g. `A B C`.
     Concatenation(Vec<Node>),
     /// A repetition, e.g. `*A`.
-    Repetition(Repetition),
+    Repetition {
+        /// How often ...
+        repeat: Repeat,
+        /// ... is which node repeated?
+        node: Box<Node>,
+    },
     /// A rulename, i.e. a non-terminal.
     Rulename(String),
     /// A group, e.g. `(A B)`.
@@ -108,17 +113,12 @@ impl Node {
         Node::Concatenation(nodes.to_vec())
     }
 
-    /// Repeat a node.
-    pub fn repeat(repeat: Repeat, node: Node) -> Node {
-        Node::Repetition(Repetition {
+    /// Constructor/Shorthand for Node::Repetition(...).
+    pub fn repetition(repeat: Repeat, node: Node) -> Node {
+        Node::Repetition {
             repeat,
             node: Box::new(node),
-        })
-    }
-
-    /// Constructor/Shorthand for Node::Repetition(...).
-    pub fn repetition(repetition: Repetition) -> Node {
-        Node::Repetition(repetition)
+        }
     }
 
     /// Constructor/Shorthand for Node::Rulename(...).
@@ -149,33 +149,6 @@ impl Node {
     /// Constructor/Shorthand for Node::Prose(...).
     pub fn prose<S: AsRef<str>>(prose: S) -> Node {
         Node::Prose(prose.as_ref().to_string())
-    }
-}
-
-/// Struct to bind a `Repeat` value to a `Node`.
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct Repetition {
-    repeat: Repeat,
-    node: Box<Node>,
-}
-
-impl Repetition {
-    /// Create a Repetition from a repeat value and a node.
-    pub fn new(repeat: Repeat, node: Node) -> Self {
-        Self {
-            repeat,
-            node: Box::new(node),
-        }
-    }
-
-    /// Get the repeat value.
-    pub fn repeat(&self) -> &Repeat {
-        &self.repeat
-    }
-
-    /// Get the node which is repeated.
-    pub fn node(&self) -> &Node {
-        &self.node
     }
 }
 
@@ -271,7 +244,7 @@ impl fmt::Display for Node {
                     write!(f, "{}", last)?;
                 }
             }
-            Node::Repetition(Repetition { repeat, node }) => {
+            Node::Repetition { repeat, node } => {
                 if let Some(min) = repeat.min {
                     write!(f, "{}", min)?;
                 }
