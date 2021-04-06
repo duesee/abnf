@@ -195,29 +195,6 @@ fn elements<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Node
 }
 
 /// ```abnf
-/// c-wsp = WSP / (c-nl WSP)
-/// ```
-fn c_wsp<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &'a str, E> {
-    alt((recognize(WSP), recognize(tuple((c_nl, recognize(WSP))))))(input)
-}
-
-/// Comment or Newline.
-///
-/// ```abnf
-/// c-nl = comment / CRLF
-/// ```
-fn c_nl<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &'a str, E> {
-    alt((comment, crlf_relaxed))(input)
-}
-
-/// ```abnf
-/// comment = ";" *(WSP / VCHAR) CRLF
-/// ```
-fn comment<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &'a str, E> {
-    recognize(tuple((char(';'), take_until("\n"), char('\n'))))(input)
-}
-
-/// ```abnf
 /// alternation = concatenation *(*c-wsp "/" *c-wsp concatenation)
 /// ```
 fn alternation<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Node, E> {
@@ -475,6 +452,29 @@ fn prose_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &st
     let is_inner = |x| matches!(x, '\x20'..='\x3D' | '\x3F'..='\x7E');
 
     delimited(char('<'), take_while(is_inner), char('>'))(input)
+}
+
+/// Comment or Newline.
+///
+/// ```abnf
+/// c-nl = comment / CRLF
+/// ```
+fn c_nl<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &'a str, E> {
+    alt((comment, crlf_relaxed))(input)
+}
+
+/// ```abnf
+/// comment = ";" *(WSP / VCHAR) CRLF
+/// ```
+fn comment<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &'a str, E> {
+    recognize(tuple((char(';'), take_until("\n"), char('\n'))))(input)
+}
+
+/// ```abnf
+/// c-wsp = WSP / (c-nl WSP)
+/// ```
+fn c_wsp<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &'a str, E> {
+    alt((recognize(WSP), recognize(tuple((c_nl, recognize(WSP))))))(input)
 }
 
 #[cfg(test)]
