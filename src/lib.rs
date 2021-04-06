@@ -262,12 +262,12 @@ fn repeat<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Repeat
                     None
                 };
 
-                Repeat::with(min, max)
+                Repeat::variable(min, max)
             },
         ),
         map(many1(DIGIT), |value| {
             let value = usize::from_str_radix(&value.into_iter().collect::<String>(), 10).unwrap();
-            Repeat::with(Some(value), Some(value))
+            Repeat::specific(value)
         }),
     ));
 
@@ -547,7 +547,11 @@ mod tests {
 
     impl Arbitrary for Repeat {
         fn arbitrary<G: Gen>(g: &mut G) -> Self {
-            Repeat::with(Option::<usize>::arbitrary(g), Option::<usize>::arbitrary(g))
+            match g.gen_range(0, 2) {
+                0 => Repeat::specific(<usize>::arbitrary(g)),
+                1 => Repeat::variable(Option::<usize>::arbitrary(g), Option::<usize>::arbitrary(g)),
+                _ => unreachable!(),
+            }
         }
     }
 
@@ -603,7 +607,7 @@ mod tests {
                 "a = 0*15\"-\"\n",
                 Rule::new(
                     "a",
-                    Node::repetition(Repeat::with(Some(0), Some(15)), Node::string("-")),
+                    Node::repetition(Repeat::variable(Some(0), Some(15)), Node::string("-")),
                 ),
             ),
             (
@@ -746,8 +750,8 @@ mod tests {
         let rule = Rule::new(
             "rule",
             Node::repetition(
-                Repeat::with(Some(1), Some(12)),
-                Node::repetition(Repeat::with(Some(1), Some(2)), Node::prose("test")),
+                Repeat::variable(Some(1), Some(12)),
+                Node::repetition(Repeat::variable(Some(1), Some(2)), Node::prose("test")),
             ),
         );
         println!("{}", rule);

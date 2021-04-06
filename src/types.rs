@@ -152,41 +152,62 @@ impl Node {
     }
 }
 
-/// An optionally lower and optionally upper bounded repeat value.
-/// Both bounds are inclusive.
-#[derive(Debug, Clone, Eq, PartialEq, Default)]
-pub struct Repeat {
-    min: Option<usize>,
-    max: Option<usize>,
+/// Defines the kind of repetition. This enum is defined in a way,
+/// which makes it possible to preserve the parsed variant.
+/// As a consequence, multiple logically equivalent forms can be represented,
+/// e.g. `4<element> == 4*4<element>`, `*5<element> == 0*5<element>`, etc.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum Repeat {
+    /// Repeat exactly n times, e.g. `4<element>`.
+    Specific(usize),
+    /// Repeat with optionally lower and optionally upper bounded value, e.g. `1*3<element>`.
+    /// Both bounds are inclusive.
+    Variable {
+        /// Lower bound (inclusive).
+        min: Option<usize>,
+        /// Upper bound (inclusive).
+        max: Option<usize>,
+    },
 }
 
 impl Repeat {
     /// Create an unbounded repeat value, i.e. `*`.
     pub fn unbounded() -> Self {
-        Self {
+        Self::Variable {
             min: None,
             max: None,
         }
     }
 
-    /// Create a specific repeat value by providing both lower and upper bound.
-    pub fn with(min: Option<usize>, max: Option<usize>) -> Self {
-        Self { min, max }
+    /// Create a specific repeat value by providing n.
+    pub fn specific(n: usize) -> Self {
+        Self::Specific(n)
+    }
+
+    /// Create a variable repeat value by providing both lower and upper bound.
+    pub fn variable(min: Option<usize>, max: Option<usize>) -> Self {
+        Self::Variable { min, max }
     }
 
     /// Get the lower bound.
     pub fn min(&self) -> Option<usize> {
-        self.min
+        match *self {
+            Self::Specific(n) => Some(n),
+            Self::Variable { min, .. } => min,
+        }
     }
 
     /// Get the upper bound.
     pub fn max(&self) -> Option<usize> {
-        self.max
+        match *self {
+            Self::Specific(n) => Some(n),
+            Self::Variable { max, .. } => max,
+        }
     }
 
     /// Get the lower and upper bound as a tuple.
     pub fn min_max(&self) -> (Option<usize>, Option<usize>) {
-        (self.min, self.max)
+        (self.min(), self.max())
     }
 }
 
@@ -245,14 +266,21 @@ impl fmt::Display for Node {
                 }
             }
             Node::Repetition { repeat, node } => {
-                if let Some(min) = repeat.min {
-                    write!(f, "{}", min)?;
-                }
+                match *repeat {
+                    Repeat::Specific(n) => {
+                        write!(f, "{}", n)?;
+                    }
+                    Repeat::Variable { min, max } => {
+                        if let Some(min) = min {
+                            write!(f, "{}", min)?;
+                        }
 
-                write!(f, "*")?;
+                        write!(f, "*")?;
 
-                if let Some(max) = repeat.max {
-                    write!(f, "{}", max)?;
+                        if let Some(max) = max {
+                            write!(f, "{}", max)?;
+                        }
+                    }
                 }
 
                 write!(f, "{}", node)?;
