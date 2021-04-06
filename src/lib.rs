@@ -55,6 +55,7 @@ pub mod types;
 /// ```
 /// use abnf::rulelist;
 ///
+/// // Note: mind the trailing newline!
 /// match rulelist("a = b\nc = *d\n") {
 ///     Ok(rules) => println!("{:#?}", rules),
 ///     Err(error) => eprintln!("{}", error),
