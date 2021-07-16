@@ -5,7 +5,7 @@
 
 # ABNF
 
-A parser for ABNF based on nom 6.
+A parser for ABNF based on nom 7.
 
 ## Example
 
