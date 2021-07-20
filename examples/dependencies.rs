@@ -1,10 +1,11 @@
 //! This example shows how to use the `abnf` crate to create a dependency graph of `Rule`s.
 
+use std::env::args;
+
 use abnf::{
     rulelist,
     types::{Node, Rule},
 };
-use std::env::args;
 
 /// A type which implements this trait is able to report on what rules it "depends" on.
 /// For simplicity, the dependencies are just a vector of strings here.

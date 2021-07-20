@@ -28,7 +28,6 @@
 //! }
 //! ```
 
-use crate::types::*;
 use abnf_core::{complete::*, is_ALPHA, is_BIT, is_DIGIT, is_HEXDIG};
 use nom::{
     branch::alt,
@@ -40,6 +39,8 @@ use nom::{
     sequence::{delimited, preceded, separated_pair, terminated, tuple},
     IResult,
 };
+
+use crate::types::*;
 
 pub mod error;
 pub mod types;
@@ -465,11 +466,12 @@ fn hex_u32<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, u32, 
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use nom::error::VerboseError;
     use quickcheck::{Arbitrary, Gen};
     use quickcheck_macros::quickcheck;
     use rand::{distributions::Distribution, seq::SliceRandom, Rng};
+
+    use super::*;
 
     struct RulenameDistribution;
 
