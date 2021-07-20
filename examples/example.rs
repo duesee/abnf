@@ -1,6 +1,6 @@
-use abnf::rulelist;
-
 use std::error::Error;
+
+use abnf::rulelist;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let rules = {

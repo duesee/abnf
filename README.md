@@ -1,8 +1,3 @@
-<p align="right">
-  <a href="https://travis-ci.org/duesee/abnf"><img src="https://travis-ci.org/duesee/abnf.svg?branch=master" title="travis-ci.org"/></a>
-  <a href="https://docs.rs/abnf"><img src="https://img.shields.io/badge/documentation-docs.rs-informational" title="docs.rs"/></a>
-</p>
-
 # ABNF
 
 A parser for ABNF based on nom 7.
