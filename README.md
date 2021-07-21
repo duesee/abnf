@@ -1,3 +1,6 @@
+![CI](https://github.com/duesee/abnf/actions/workflows/ci.yml/badge.svg)
+![Scheduled](https://github.com/duesee/abnf/actions/workflows/scheduled.yml/badge.svg)
+
 # ABNF
 
 A parser for ABNF based on nom 7.
