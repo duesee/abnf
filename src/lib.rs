@@ -469,7 +469,7 @@ mod tests {
     use nom::error::VerboseError;
     use quickcheck::{Arbitrary, Gen};
     use quickcheck_macros::quickcheck;
-    use rand::{distributions::Distribution, seq::SliceRandom, Rng};
+    use rand::{distributions::Distribution, seq::SliceRandom, thread_rng, Rng};
 
     use super::*;
 
@@ -484,11 +484,9 @@ mod tests {
     }
 
     impl Arbitrary for Rule {
-        fn arbitrary<G: Gen>(g: &mut G) -> Self {
-            let name: String = std::iter::repeat(())
-                .map(|()| g.sample(RulenameDistribution))
-                .take(7)
-                .collect();
+        fn arbitrary(g: &mut Gen) -> Self {
+            let rng = thread_rng();
+            let name: String = RulenameDistribution.sample_iter(rng).take(7).collect();
             let name = String::from("a") + &name;
 
             match Kind::arbitrary(g) {
@@ -499,14 +497,12 @@ mod tests {
     }
 
     impl Arbitrary for Node {
-        fn arbitrary<G: Gen>(g: &mut G) -> Self {
-            let name: String = std::iter::repeat(())
-                .map(|()| g.sample(RulenameDistribution))
-                .take(7)
-                .collect();
+        fn arbitrary(g: &mut Gen) -> Self {
+            let mut rng = thread_rng();
+            let name: String = RulenameDistribution.sample_iter(&mut rng).take(7).collect();
             let name = String::from("a") + &name;
 
-            match g.gen_range(0, 9) {
+            match rng.gen_range(0..=8) {
                 0 => Node::Alternatives(vec![Node::arbitrary(g), Node::arbitrary(g)]),
                 1 => Node::Concatenation(vec![Node::arbitrary(g), Node::arbitrary(g)]),
                 2 => Node::Repetition {
@@ -525,15 +521,18 @@ mod tests {
     }
 
     impl Arbitrary for Kind {
-        fn arbitrary<G: Gen>(g: &mut G) -> Self {
-            use Kind::*;
-            [Basic, Incremental].choose(g).unwrap().clone()
+        fn arbitrary(_: &mut Gen) -> Self {
+            match thread_rng().gen_range(0..=1) {
+                0 => Kind::Basic,
+                1 => Kind::Incremental,
+                _ => unreachable!(),
+            }
         }
     }
 
     impl Arbitrary for Repeat {
-        fn arbitrary<G: Gen>(g: &mut G) -> Self {
-            match g.gen_range(0, 2) {
+        fn arbitrary(g: &mut Gen) -> Self {
+            match thread_rng().gen_range(0..=1) {
                 0 => Repeat::specific(<usize>::arbitrary(g)),
                 1 => Repeat::variable(Option::<usize>::arbitrary(g), Option::<usize>::arbitrary(g)),
                 _ => unreachable!(),
@@ -542,15 +541,12 @@ mod tests {
     }
 
     impl Arbitrary for TerminalValues {
-        fn arbitrary<G: Gen>(g: &mut G) -> Self {
-            use super::TerminalValues::*;
-            [
-                Concatenation(Vec::<u32>::arbitrary(g)),
-                Range(u32::arbitrary(g), u32::arbitrary(g)),
-            ]
-            .choose(g)
-            .unwrap()
-            .clone()
+        fn arbitrary(g: &mut Gen) -> Self {
+            match thread_rng().gen_range(0..=1) {
+                0 => TerminalValues::Concatenation(Vec::<u32>::arbitrary(g)),
+                1 => TerminalValues::Range(u32::arbitrary(g), u32::arbitrary(g)),
+                _ => unreachable!(),
+            }
         }
     }
 
