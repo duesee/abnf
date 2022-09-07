@@ -265,7 +265,7 @@ fn element<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Node,
         map(rulename, |rulename| Node::Rulename(rulename.to_owned())),
         group,
         option,
-        map(char_val, |str| Node::String(str.to_owned())),
+        map(char_val, Node::String),
         map(num_val, Node::TerminalValues),
         map(prose_val, |str| Node::Prose(str.to_owned())),
     ))(input)
@@ -301,12 +301,44 @@ fn option<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Node, 
     Ok((input, Node::Optional(Box::new(alternation))))
 }
 
+/// ```abnf
+/// char-val = case-insensitive-string / case-sensitive-string
+/// ```
+fn char_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, StringLiteral, E> {
+    alt((
+        map(case_insensitive_string, |str| {
+            StringLiteral::case_insensitive(str.to_owned())
+        }),
+        map(case_sensitive_string, |str| {
+            StringLiteral::case_sensitive(str.to_owned())
+        }),
+    ))(input)
+}
+
+/// ```abnf
+/// case-insensitive-string = [ "%i" ] quoted-string
+/// ```
+fn case_insensitive_string<'a, E: ParseError<&'a str>>(
+    input: &'a str,
+) -> IResult<&'a str, &str, E> {
+    let marker = preceded(char('%'), alt((char('i'), char('I'))));
+    preceded(opt(marker), quoted_string)(input)
+}
+
+/// ```abnf
+/// case-sensitive-string = "%s" quoted-string
+/// ```
+fn case_sensitive_string<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &str, E> {
+    let marker = preceded(char('%'), alt((char('i'), char('I'))));
+    preceded(marker, quoted_string)(input)
+}
+
 /// Quoted string of SP and VCHAR without DQUOTE
 ///
 /// ```abnf
-/// char-val = DQUOTE *(%x20-21 / %x23-7E) DQUOTE
+/// quoted-string = DQUOTE *(%x20-21 / %x23-7E) DQUOTE
 /// ```
-fn char_val<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &str, E> {
+fn quoted_string<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &str, E> {
     let is_inner = |x| matches!(x, '\x20'..='\x21' | '\x23'..='\x7E');
 
     delimited(DQUOTE, take_while(is_inner), DQUOTE)(input)
@@ -483,6 +515,22 @@ mod tests {
         }
     }
 
+    /// Uniform char distribution in the set `%x20-21 / %x23-7E`.
+    struct StringDistribution;
+
+    impl Distribution<char> for StringDistribution {
+        fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> char {
+            let mut i = rng.gen_range(0x20u32..=0x7d);
+
+            if i > 0x21 {
+                // avoid %x22
+                i += 0x01
+            }
+
+            char::from_u32(i).unwrap()
+        }
+    }
+
     impl Arbitrary for Rule {
         fn arbitrary(g: &mut Gen) -> Self {
             let rng = thread_rng();
@@ -512,11 +560,25 @@ mod tests {
                 3 => Node::Rulename(name), // TODO
                 4 => Node::Group(Box::<Node>::arbitrary(g)),
                 5 => Node::Optional(Box::<Node>::arbitrary(g)),
-                6 => Node::String(name), // TODO
+                6 => Node::String(StringLiteral::arbitrary(g)),
                 7 => Node::TerminalValues(TerminalValues::arbitrary(g)),
                 8 => Node::Prose(name), // TODO
                 _ => unreachable!(),
             }
+        }
+    }
+
+    impl Arbitrary for StringLiteral {
+        fn arbitrary(_: &mut Gen) -> Self {
+            let mut rng = thread_rng();
+
+            let len = rand_distr::Binomial::new(20, 0.3).unwrap().sample(&mut rng) as usize;
+            let value = StringDistribution.sample_iter(&mut rng).take(len).collect();
+            let case_sensitive = rand::distributions::Bernoulli::new(0.5)
+                .unwrap()
+                .sample(&mut rng);
+
+            Self::new(value, case_sensitive)
         }
     }
 
@@ -589,14 +651,17 @@ mod tests {
                 "a = 0*15\"-\"\n",
                 Rule::new(
                     "a",
-                    Node::repetition(Repeat::variable(Some(0), Some(15)), Node::string("-")),
+                    Node::repetition(
+                        Repeat::variable(Some(0), Some(15)),
+                        Node::string("-", false),
+                    ),
                 ),
             ),
             (
                 "a = *\"-\"\n",
                 Rule::new(
                     "a",
-                    Node::repetition(Repeat::unbounded(), Node::string("-")),
+                    Node::repetition(Repeat::unbounded(), Node::string("-", false)),
                 ),
             ),
         ];

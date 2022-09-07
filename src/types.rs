@@ -93,8 +93,8 @@ pub enum Node {
     Group(Box<Node>),
     /// An option, e.g. `[A]`.
     Optional(Box<Node>),
-    /// A literal text string/terminal, e.g. `"http"`.
-    String(String),
+    /// A literal text string/terminal, e.g. `"http"`, `%i"hTtP"` or `%s"http"`.
+    String(StringLiteral),
     /// A single value within a range (e.g. `%x01-ff`)
     /// or a terminal defined by a series of values (e.g. `%x0f.f1.ce`).
     TerminalValues(TerminalValues),
@@ -136,9 +136,12 @@ impl Node {
         Node::Optional(Box::new(node))
     }
 
-    /// Constructor/Shorthand for Node::String(...).
-    pub fn string<S: AsRef<str>>(string: S) -> Node {
-        Node::String(string.as_ref().to_string())
+    /// Constructor/Shorthand for Node::String(StringLiteral::new(...)).
+    pub fn string<S: AsRef<str>>(string: S, case_sensitive: bool) -> Node {
+        Node::String(StringLiteral::new(
+            string.as_ref().to_owned(),
+            case_sensitive,
+        ))
     }
 
     /// Constructor/Shorthand for Node::TerminalValues(...).
@@ -149,6 +152,101 @@ impl Node {
     /// Constructor/Shorthand for Node::Prose(...).
     pub fn prose<S: AsRef<str>>(prose: S) -> Node {
         Node::Prose(prose.as_ref().to_string())
+    }
+}
+
+/// String literal value, either case sensitive or not.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct StringLiteral {
+    /// String value.
+    value: String,
+    /// Whether the string is case sensitive or not.
+    case_sensitive: bool,
+}
+
+impl StringLiteral {
+    /// Creates a new string literal.
+    pub fn new(string: String, case_sensitive: bool) -> Self {
+        Self {
+            value: string,
+            case_sensitive,
+        }
+    }
+
+    /// Creates a new case insensitive string literal.
+    pub fn case_insensitive(string: String) -> Self {
+        Self {
+            value: string,
+            case_sensitive: false,
+        }
+    }
+
+    /// Creates a new case sensitive string literal.
+    pub fn case_sensitive(string: String) -> Self {
+        Self {
+            value: string,
+            case_sensitive: true,
+        }
+    }
+
+    /// Returns whether or not the string literal is case sensitive.
+    pub fn is_case_sensitive(&self) -> bool {
+        self.case_sensitive
+    }
+
+    /// Sets whether or not the string literal is case sensitive.
+    pub fn set_case_sensitive(&mut self, case_sensitive: bool) {
+        self.case_sensitive = case_sensitive
+    }
+
+    /// Returns the string content.
+    pub fn value(&self) -> &str {
+        &self.value
+    }
+
+    /// Returns the string content.
+    ///
+    /// Alias for [`value`](Self::value).
+    pub fn as_str(&self) -> &str {
+        &self.value
+    }
+
+    /// Returns a mutable reference to the string content.
+    pub fn value_mut(&mut self) -> &mut String {
+        &mut self.value
+    }
+
+    /// Sets the string literal's content.
+    pub fn set_value(&mut self, value: String) {
+        self.value = value
+    }
+
+    /// Turns this string literal into its content.
+    pub fn into_value(self) -> String {
+        self.value
+    }
+
+    /// Turns this string literal into a pair containing its content and a
+    /// boolean stating if the string literal is case sensitive or not.
+    pub fn into_parts(self) -> (String, bool) {
+        (self.value, self.case_sensitive)
+    }
+}
+
+impl From<String> for StringLiteral {
+    /// Converts a `String` into a case insensitive string literal.
+    fn from(s: String) -> Self {
+        Self::case_insensitive(s)
+    }
+}
+
+impl fmt::Display for StringLiteral {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.case_sensitive {
+            write!(f, "%s\"{}\"", self.value)
+        } else {
+            write!(f, "\"{}\"", self.value)
+        }
     }
 }
 
@@ -296,7 +394,7 @@ impl fmt::Display for Node {
                 write!(f, "[{}]", node)?;
             }
             Node::String(str) => {
-                write!(f, "\"{}\"", str)?;
+                str.fmt(f)?;
             }
             Node::TerminalValues(range) => {
                 write!(f, "%x")?;
