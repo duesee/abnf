@@ -329,7 +329,7 @@ fn case_insensitive_string<'a, E: ParseError<&'a str>>(
 /// case-sensitive-string = "%s" quoted-string
 /// ```
 fn case_sensitive_string<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &str, E> {
-    let marker = preceded(char('%'), alt((char('i'), char('I'))));
+    let marker = preceded(char('%'), alt((char('s'), char('S'))));
     preceded(marker, quoted_string)(input)
 }
 
@@ -694,6 +694,12 @@ mod tests {
         let (remaining, res) = repetition::<VerboseError<&str>>("1*1A").unwrap();
         assert!(remaining.len() == 0);
         println!("{:?}", res);
+    }
+
+    #[test]
+    fn test_char_val() {
+        let char_val = std::fs::read_to_string("examples/assets/char_val.abnf").unwrap();
+        rulelist(&char_val).unwrap();
     }
 
     #[test]
