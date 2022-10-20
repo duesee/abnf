@@ -698,8 +698,11 @@ mod tests {
 
     #[test]
     fn test_char_val() {
-        let char_val = std::fs::read_to_string("examples/assets/char_val.abnf").unwrap();
-        rulelist(&char_val).unwrap();
+        rulelist("a = \"foo\"\n").unwrap();
+        rulelist("b = %i\"bar\"\n").unwrap();
+        rulelist("c = %s\"baz\"\n").unwrap();
+        rulelist("e = %I\"BAR\"\n").unwrap();
+        rulelist("f = %S\"BAZ\"\n").unwrap();
     }
 
     #[test]

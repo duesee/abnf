@@ -1,5 +1,0 @@
-a = "foo"
-b = %i"bar"
-c = %s"baz"
-e = %I"BAR"
-f = %S"BAZ"
