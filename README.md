@@ -8,7 +8,14 @@ A parser for ABNF based on nom 7.
 
 ## Example
 
-The following code
+The ABNF input ...
+
+```abnf
+a = b / c
+c = *(d e)
+```
+
+... is parsed with ...
 
 ```rust
 use abnf::rulelist;
@@ -20,7 +27,7 @@ match rulelist("a = b / c\nc = *(d e)\n") {
 }
 ```
 
-outputs
+... into ...
 
 ```rust
 [
@@ -63,7 +70,7 @@ outputs
 ]
 ```
 
-You can also use the provided example to parse and `Debug`-print any ABNF file.
+You can use the provided example to parse and `Debug`-print any ABNF file:
 
 ```sh
 cargo run --example=example examples/assets/abnf.abnf
